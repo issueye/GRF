@@ -1,0 +1,38 @@
+# Binaries
+bin/
+*.exe
+*.test
+*.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local env / secrets
+.env
+config.env
+*.pem
+*.key
+
+# Go
+vendor/
+
+# Desktop frontend
+desktop/frontend/node_modules/
+desktop/frontend/dist/*
+!desktop/frontend/dist/.gitkeep
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Logs / runtime (should never be committed)
+*.log
+logs/

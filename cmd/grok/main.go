@@ -1,0 +1,620 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/grok-free-register/grok-reg/internal/config"
+	"github.com/grok-free-register/grok-reg/internal/cpa"
+	"github.com/grok-free-register/grok-reg/internal/daemon"
+	"github.com/grok-free-register/grok-reg/internal/home"
+	"github.com/grok-free-register/grok-reg/internal/runner"
+	"github.com/grok-free-register/grok-reg/internal/state"
+)
+
+func runCmd(bin string, args ...string) error {
+	cmd := exec.Command(bin, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func main() {
+	args := os.Args[1:]
+	if daemon.IsWorker() {
+		if err := runner.RunWorker(args); err != nil {
+			fmt.Fprintf(os.Stderr, "worker error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(args) == 0 {
+		printHelp()
+		os.Exit(0)
+	}
+	cmd := args[0]
+	switch cmd {
+	case "start":
+		if err := cmdStart(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "status":
+		if err := cmdStatus(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "stop":
+		if err := cmdStop(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "logs":
+		if err := cmdLogs(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "upload":
+		if err := cmdUpload(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "config":
+		if err := cmdConfig(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+	case "help", "-h", "--help":
+		printHelp()
+	case "version", "-v", "--version":
+		fmt.Println("GRF 0.1.0")
+	default:
+		fmt.Fprintf(os.Stderr, "未知命令: %s\n\n", cmd)
+		printHelp()
+		os.Exit(1)
+	}
+}
+
+func printHelp() {
+	root := "~/.grok"
+	configPath := filepath.Join(root, "config.env")
+	examplePath := filepath.Join(root, "config.env.example")
+	outputsPath := filepath.Join(root, "outputs", "<yyyymmdd-HHMMSS>", "{SSO,CPA}")
+	if p, err := home.Resolve(); err == nil {
+		root = p.Root
+		configPath = p.Config
+		examplePath = config.ExamplePath(p.Root)
+		outputsPath = filepath.Join(p.Outputs, "<yyyymmdd-HHMMSS>", "{SSO,CPA}")
+	}
+	text := `{cmd} — Grok 注册 + OAuth 二合一 CLI
+
+用法:
+  {cmd} start                      交互：询问注册数量与并发线程(1-8)
+  {cmd} start -t N --thread M      目标 N 个 CPA 成功；M 并发线程
+  {cmd} start -t N -j M            同上（-j 为 --thread 简写）
+  {cmd} status                     查看运行状态与进度
+  {cmd} stop                       立即停止注册机
+  {cmd} logs [-f]                  查看最近一次运行日志；-f 实时跟踪
+  {cmd} upload                     选择最近 run 的 CPA JSON 上传到 Management API
+  {cmd} config                     打开 {config}（并刷新 config.env.example）
+  {cmd} help                       显示帮助
+
+说明:
+  -t / --target   目标账号数 = 探活成功写入 CPA/ 的数量 (1-10000)
+  --thread / -j   并发注册/Turnstile 线程数 (1-8)，不再写入 config.env
+  升级后请查看 {example} 了解新增配置项
+
+数据目录: {root} (可用 {home_env} 覆盖)
+输出:     {outputs}
+`
+	replacer := strings.NewReplacer(
+		"{cmd}", programName(),
+		"{config}", configPath,
+		"{example}", examplePath,
+		"{root}", root,
+		"{home_env}", home.PreferredEnvHome(),
+		"{outputs}", outputsPath,
+	)
+	fmt.Print(replacer.Replace(text))
+}
+
+func programName() string {
+	name := filepath.Base(os.Args[0])
+	name = strings.TrimSuffix(name, filepath.Ext(name))
+	if name == "" {
+		return "grok"
+	}
+	return name
+}
+
+func paths() (home.Paths, error) {
+	p, err := home.Resolve()
+	if err != nil {
+		return p, err
+	}
+	if err := p.EnsureBase(); err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+func cmdStart(args []string) error {
+	target := 0
+	threads := 0
+	targetSet, threadSet := false, false
+
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "-t" || a == "--target":
+			if i+1 >= len(args) {
+				return fmt.Errorf("-t 需要数字参数")
+			}
+			n, err := strconv.Atoi(args[i+1])
+			if err != nil {
+				return fmt.Errorf("无效目标: %s", args[i+1])
+			}
+			target, err = config.ClampTarget(n)
+			if err != nil {
+				return err
+			}
+			targetSet = true
+			i++
+		case a == "--thread" || a == "--threads" || a == "-j":
+			if i+1 >= len(args) {
+				return fmt.Errorf("%s 需要数字参数 (1-8)", a)
+			}
+			n, err := strconv.Atoi(args[i+1])
+			if err != nil {
+				return fmt.Errorf("无效线程数: %s", args[i+1])
+			}
+			threads, err = config.ClampThreads(n)
+			if err != nil {
+				return err
+			}
+			threadSet = true
+			i++
+		case strings.HasPrefix(a, "-t") && len(a) > 2 && a[2] >= '0' && a[2] <= '9':
+			n, err := strconv.Atoi(strings.TrimPrefix(a, "-t"))
+			if err != nil {
+				return fmt.Errorf("无效 -t: %s", a)
+			}
+			target, err = config.ClampTarget(n)
+			if err != nil {
+				return err
+			}
+			targetSet = true
+		case strings.HasPrefix(a, "-j") && len(a) > 2:
+			n, err := strconv.Atoi(strings.TrimPrefix(a, "-j"))
+			if err != nil {
+				return fmt.Errorf("无效 -j: %s", a)
+			}
+			threads, err = config.ClampThreads(n)
+			if err != nil {
+				return err
+			}
+			threadSet = true
+		default:
+			return fmt.Errorf("未知参数: %s（用法: %s start -t N --thread M）", a, programName())
+		}
+	}
+
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	// Always refresh example so upgrades surface new keys.
+	_ = config.SyncExample(p.Root)
+
+	// already running?
+	if pid, err := daemon.ReadPID(p.PID); err == nil && daemon.PIDAlive(pid) {
+		return fmt.Errorf("注册机已经在运行 (PID %d)，先 %s status / %s stop", pid, programName(), programName())
+	}
+
+	// config (email mode etc.)
+	if _, err := os.Stat(p.Config); os.IsNotExist(err) {
+		if _, err := config.InteractiveSetup(p.Config); err != nil {
+			return err
+		}
+	}
+
+	// Interactive prompts when flags omitted
+	reader := bufio.NewReader(os.Stdin)
+	if !targetSet {
+		fmt.Print("注册数量 (探活成功计 1，1-10000) [10]: ")
+		line, _ := reader.ReadString('\n')
+		line = strings.TrimSpace(line)
+		if line == "" {
+			target = 10
+		} else {
+			n, err := strconv.Atoi(line)
+			if err != nil {
+				return fmt.Errorf("无效数量: %s", line)
+			}
+			target, err = config.ClampTarget(n)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !threadSet {
+		fmt.Print("并发线程数 (Turnstile/注册并行，1-8) [2]: ")
+		line, _ := reader.ReadString('\n')
+		line = strings.TrimSpace(line)
+		if line == "" {
+			threads = 2
+		} else {
+			n, err := strconv.Atoi(line)
+			if err != nil {
+				return fmt.Errorf("无效线程数: %s", line)
+			}
+			threads, err = config.ClampThreads(n)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	runID := home.NewRunID()
+	_ = os.MkdirAll(p.LogsDir, 0o700)
+	logPath := filepath.Join(p.LogsDir, fmt.Sprintf("run-%s.log", runID))
+
+	st := state.NewStore(p.State)
+	_ = st.Set(func(s *state.Snapshot) {
+		s.Status = state.StatusRunning
+		s.RunID = runID
+		s.Target = target
+		s.Done = 0
+		s.Phase = state.PhaseIdle
+		s.PhaseDetail = "启动中"
+		s.Workers = state.Workers{S: threads}
+		s.LogPath = logPath
+		s.OutputDir = filepath.Join(p.Outputs, runID)
+		s.Error = ""
+		s.PID = 0
+	})
+
+	// Do not let a stale request from a previous crashed run stop the new worker.
+	daemon.ClearStop(p.Stop)
+	pid, err := daemon.StartBackground(target, threads, runID)
+	if err != nil {
+		return err
+	}
+	if err := daemon.WritePID(p.PID, pid); err != nil {
+		return err
+	}
+	_ = st.Set(func(s *state.Snapshot) { s.PID = pid })
+
+	fmt.Printf("[✓] 注册机已后台启动\n")
+	fmt.Printf("    PID:    %d\n", pid)
+	fmt.Printf("    目标:   %d\n", target)
+	fmt.Printf("    线程:   %d\n", threads)
+	fmt.Printf("    Run:    %s\n", runID)
+	fmt.Printf("    日志:   %s\n", logPath)
+	fmt.Printf("    输出:   %s\n", filepath.Join(p.Outputs, runID))
+	fmt.Printf("    配置:   %s  |  示例: %s\n", p.Config, config.ExamplePath(p.Root))
+	fmt.Printf("    查看:   %s status  |  %s logs -f  |  %s config\n", programName(), programName(), programName())
+	return nil
+}
+
+func cmdConfig() error {
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	_ = config.SyncExample(p.Root)
+	// Ensure config exists
+	if _, err := os.Stat(p.Config); os.IsNotExist(err) {
+		if _, err := config.InteractiveSetup(p.Config); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("配置文件: %s\n", p.Config)
+	fmt.Printf("示例参考: %s（升级后自动刷新，含新增项说明）\n", config.ExamplePath(p.Root))
+
+	editor := strings.TrimSpace(os.Getenv("EDITOR"))
+	if editor == "" {
+		editor = strings.TrimSpace(os.Getenv("VISUAL"))
+	}
+	// Prefer common editors
+	candidates := []string{}
+	if editor != "" {
+		candidates = append(candidates, editor)
+	}
+	// notepad.exe makes `grok config` work on a stock Windows installation.
+	candidates = append(candidates, "notepad.exe", "nano", "vim", "vi", "nvim", "code", "open")
+	var lastErr error
+	for _, ed := range candidates {
+		// `open` is macOS; use -t for textedit or just open path
+		var cmd *os.File
+		_ = cmd
+		c := execEditor(ed, p.Config)
+		if c == nil {
+			continue
+		}
+		if err := c(); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	if lastErr != nil {
+		return fmt.Errorf("无法打开编辑器: %v；请手动编辑 %s", lastErr, p.Config)
+	}
+	return fmt.Errorf("未找到编辑器，请手动编辑 %s（可设置 EDITOR=nano）", p.Config)
+}
+
+func execEditor(editor, path string) func() error {
+	editor = strings.TrimSpace(editor)
+	if editor == "" {
+		return nil
+	}
+	// split simple "code -w" style
+	parts := strings.Fields(editor)
+	bin := parts[0]
+	args := append(parts[1:], path)
+	if bin == "open" {
+		// macOS: open with default app for .env, or TextEdit
+		args = []string{"-e", path}
+	}
+	return func() error {
+		// use os/exec via shelling — import already has no exec in main? need add
+		return runCmd(bin, args...)
+	}
+}
+
+func cmdStatus() error {
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	st := state.NewStore(p.State)
+	snap, err := st.Load()
+	if err != nil && !os.IsNotExist(err) {
+		// no state yet
+		fmt.Println("状态: 未运行")
+		return nil
+	}
+	if os.IsNotExist(err) {
+		fmt.Println("状态: 未运行")
+		return nil
+	}
+	// reconcile pid
+	if snap.Status == state.StatusRunning {
+		if snap.PID == 0 {
+			if pid, e := daemon.ReadPID(p.PID); e == nil {
+				snap.PID = pid
+			}
+		}
+		if snap.PID != 0 && !daemon.PIDAlive(snap.PID) {
+			snap.Status = state.StatusStopped
+			snap.PhaseDetail = "进程已结束"
+			snap.PID = 0
+		}
+	}
+	fmt.Print(daemon.FormatStatus(snap))
+	return nil
+}
+
+func cmdStop() error {
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	if err := daemon.Stop(p); err != nil {
+		return err
+	}
+	st := state.NewStore(p.State)
+	_ = st.Set(func(s *state.Snapshot) {
+		s.Status = state.StatusStopped
+		s.Phase = state.PhaseIdle
+		s.PhaseDetail = "已手动停止"
+		s.PID = 0
+	})
+	fmt.Println("[✓] 注册机已停止")
+	return nil
+}
+
+func cmdLogs(args []string) error {
+	follow := false
+	for _, a := range args {
+		if a == "-f" || a == "--follow" {
+			follow = true
+		}
+	}
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	st := state.NewStore(p.State)
+	snap, _ := st.Load()
+	path := snap.LogPath
+	if path == "" {
+		// pick latest in logs dir
+		path = latestLog(p.LogsDir)
+	}
+	if path == "" {
+		return fmt.Errorf("没有日志文件")
+	}
+	if !follow {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		fmt.Print(string(data))
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "跟踪 %s (Ctrl-C 退出)\n", path)
+	var offset int64
+	if fi, err := os.Stat(path); err == nil {
+		// show last 4k first
+		offset = fi.Size() - 4096
+		if offset < 0 {
+			offset = 0
+		}
+	}
+	for {
+		f, err := os.Open(path)
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		if _, err := f.Seek(offset, 0); err != nil {
+			_ = f.Close()
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		buf := make([]byte, 8192)
+		for {
+			n, err := f.Read(buf)
+			if n > 0 {
+				_, _ = os.Stdout.Write(buf[:n])
+				offset += int64(n)
+			}
+			if err != nil {
+				break
+			}
+		}
+		_ = f.Close()
+		time.Sleep(400 * time.Millisecond)
+	}
+}
+
+func latestLog(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	var best string
+	var bestT time.Time
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "run-") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().After(bestT) {
+			bestT = info.ModTime()
+			best = filepath.Join(dir, e.Name())
+		}
+	}
+	return best
+}
+
+func cmdUpload() error {
+	p, err := paths()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(p.Config)
+	if err != nil {
+		return err
+	}
+	// env overrides
+	if v := os.Getenv("CPA_UPLOAD_ENABLED"); v != "" {
+		cfg.CPAUploadEnabled = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+	if v := os.Getenv("CPA_MANAGEMENT_BASE"); v != "" {
+		cfg.CPAManagementBase = v
+	}
+	if v := os.Getenv("CPA_MANAGEMENT_KEY"); v != "" {
+		cfg.CPAManagementKey = v
+	}
+	// interactive upload always allowed if key+base set
+	if strings.TrimSpace(cfg.CPAManagementKey) == "" {
+		return fmt.Errorf("未配置 CPA_MANAGEMENT_KEY（在 %s 或环境变量中设置）", p.Config)
+	}
+	if strings.TrimSpace(cfg.CPAManagementBase) == "" {
+		cfg.CPAManagementBase = "http://localhost:8317/v0/management"
+	}
+
+	runs, err := cpa.ListRunDirs(p.Outputs, 10)
+	if err != nil {
+		return err
+	}
+	if len(runs) == 0 {
+		return fmt.Errorf("outputs 下没有注册结果目录")
+	}
+
+	fmt.Println("最近注册 run（最多 10 个）:")
+	type item struct {
+		dir   string
+		name  string
+		files []string
+	}
+	var items []item
+	for i, dir := range runs {
+		files, _ := cpa.CollectCPAJSON(dir)
+		name := filepath.Base(dir)
+		items = append(items, item{dir: dir, name: name, files: files})
+		fmt.Printf("  [%d] %s  CPA文件=%d\n", i+1, name, len(files))
+	}
+	fmt.Print("选择要上传的序号（如 1 或 1,2,3；回车取消）: ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	line = strings.TrimSpace(line)
+	if line == "" {
+		fmt.Println("已取消")
+		return nil
+	}
+	var selected []int
+	for _, part := range strings.Split(line, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		// allow ranges? no — only comma list
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 1 || n > len(items) {
+			return fmt.Errorf("无效序号: %s", part)
+		}
+		selected = append(selected, n-1)
+	}
+	if len(selected) == 0 {
+		fmt.Println("未选择")
+		return nil
+	}
+
+	up := cpa.NewUploader(cpa.UploadConfig{
+		Enabled:      true,
+		BaseURL:      cfg.CPAManagementBase,
+		Key:          cfg.CPAManagementKey,
+		TimeoutSec:   cfg.CPAUploadTimeoutSec,
+		Retries:      cfg.CPAUploadRetries,
+		NameTemplate: cfg.CPAUploadNameTemplate,
+		Verify:       cfg.CPAUploadVerify,
+		Mode:         cfg.CPAUploadMode,
+	}, func(f string, a ...any) {
+		fmt.Printf(f+"\n", a...)
+	})
+
+	var okN, failN, skipN int
+	for _, idx := range selected {
+		it := items[idx]
+		if len(it.files) == 0 {
+			fmt.Printf("[!] %s 无 CPA json，跳过\n", it.name)
+			skipN++
+			continue
+		}
+		fmt.Printf("[*] 上传 %s (%d 个文件)...\n", it.name, len(it.files))
+		for _, f := range it.files {
+			res := up.UploadFile(f)
+			if res.OK {
+				okN++
+			} else {
+				failN++
+			}
+		}
+	}
+	fmt.Printf("[✓] 完成 ok=%d fail=%d skip_runs=%d\n", okN, failN, skipN)
+	return nil
+}
