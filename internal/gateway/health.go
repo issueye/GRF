@@ -88,30 +88,43 @@ func (m *Manager) checkAccount(parent context.Context, id int64) bool {
 	defer cancel()
 	credential, err := m.store.GetCredential(ctx, id)
 	if err != nil {
+		m.persistAccountHealth(id, 0, err, false)
 		return false
 	}
 	originalAccessToken := credential.AccessToken
 	started := time.Now()
 	credential, err = m.build.CheckHealth(ctx, credential)
 	latency := time.Since(started)
-	if ctx.Err() != nil {
-		return false
+	if ctxErr := ctx.Err(); ctxErr != nil && err == nil {
+		err = ctxErr
 	}
+	persistCtx, persistCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer persistCancel()
 	if credential.AccessToken != originalAccessToken && credential.ExpiresAt != nil {
-		if saveErr := m.store.UpdateCredentialTokens(ctx, credential.ID, credential.AccessToken, credential.RefreshToken, *credential.ExpiresAt); saveErr != nil && err == nil {
+		if saveErr := m.store.UpdateCredentialTokens(persistCtx, credential.ID, credential.AccessToken, credential.RefreshToken, *credential.ExpiresAt); saveErr != nil && err == nil {
 			err = saveErr
 		}
 	}
 	var checkErr *HealthCheckError
 	authFailed := errors.As(err, &checkErr) && checkErr.AuthFailed()
-	message := ""
-	if err != nil {
-		message = err.Error()
-	}
-	if updateErr := m.store.UpdateAccountHealth(context.Background(), id, err == nil, latency, message, authFailed); updateErr != nil {
+	if updateErr := m.updateAccountHealth(persistCtx, id, latency, err, authFailed); updateErr != nil {
 		return false
 	}
 	return err == nil
+}
+
+func (m *Manager) persistAccountHealth(id int64, latency time.Duration, healthErr error, authFailed bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = m.updateAccountHealth(ctx, id, latency, healthErr, authFailed)
+}
+
+func (m *Manager) updateAccountHealth(ctx context.Context, id int64, latency time.Duration, healthErr error, authFailed bool) error {
+	message := ""
+	if healthErr != nil {
+		message = healthErr.Error()
+	}
+	return m.store.UpdateAccountHealth(ctx, id, healthErr == nil, latency, message, authFailed)
 }
 
 func (m *Manager) ConfigureHealthChecks(enabled bool, interval time.Duration) error {

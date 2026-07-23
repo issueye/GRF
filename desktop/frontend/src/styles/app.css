@@ -242,6 +242,7 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .gateway-table-row code { color: var(--text-muted); font: 11px "Cascadia Code", Consolas, monospace; }
 .compact-toggle { display: flex; align-items: center; gap: 7px; color: var(--text-muted); font-size: 11px; }
 .compact-toggle input { width: 15px; height: 15px; }
+.compact-toggle.is-unavailable { color: var(--danger); font-weight: 600; }
 .concurrency-input { width: 66px; }
 .row-actions { display: flex; gap: 6px; }
 .danger-icon { color: var(--danger); }

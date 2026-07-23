@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestManagerCheckAccountsRecordsHealthyAndUnauthorized(t *testing.T) {
@@ -68,5 +70,37 @@ func TestConfigureHealthChecksValidatesInterval(t *testing.T) {
 	}
 	if err := manager.ConfigureHealthChecks(false, 0); err != nil {
 		t.Fatalf("disabled health checks should ignore interval: %v", err)
+	}
+}
+
+func TestManagerCheckAccountPersistsCanceledRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	store := openTestStore(t)
+	account, _, err := store.UpsertAccount(context.Background(), AccountSeed{UserID: "timeout", AccessToken: "timeout-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(store)
+	manager.build.BaseURL = server.URL + "/v1"
+	manager.build.HTTPClient = server.Client()
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+	defer cancel()
+	if manager.checkAccount(ctx, account.ID) {
+		t.Fatal("canceled health check was reported as healthy")
+	}
+
+	accounts, err := store.ListAccounts(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].HealthStatus != HealthFailed || accounts[0].LastCheckedAt == nil {
+		t.Fatalf("canceled health state was not persisted: %+v", accounts)
+	}
+	if !strings.Contains(strings.ToLower(accounts[0].HealthError), "deadline") {
+		t.Fatalf("unexpected canceled health error: %q", accounts[0].HealthError)
 	}
 }

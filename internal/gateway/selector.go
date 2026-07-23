@@ -38,7 +38,7 @@ func (s *Selector) Acquire(ctx context.Context) (Credential, func(), error) {
 	s.mu.Lock()
 	var selected Account
 	for _, account := range accounts {
-		if !account.Enabled || account.AuthStatus != AuthActive {
+		if !account.Enabled || account.AuthStatus != AuthActive || account.HealthStatus == HealthFailed {
 			continue
 		}
 		if account.CooldownUntil != nil && account.CooldownUntil.After(now) {
