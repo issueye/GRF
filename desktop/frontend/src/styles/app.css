@@ -129,7 +129,8 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .pipeline-stage.active > span:first-child { border-color: #c7d7fe; background: #eef4ff; }
 .pipeline-arrow { position: absolute; top: 6px; right: -7px; color: var(--border-strong); }
 .pulse-dot { width: 7px !important; height: 7px !important; border: 0 !important; background: var(--info) !important; animation: pulse 1.25s infinite; }
-.log-preview pre { max-height: 176px; min-height: 98px; margin: 0; padding: 14px; overflow: auto; color: #d5dbe4; background: #10151c; font: 11px/1.65 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
+.log-preview { flex: 1; }
+.log-preview pre { min-height: 98px; margin: 0; padding: 14px; overflow: auto; color: #d5dbe4; background: #10151c; font: 11px/1.65 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
 .danger-label { display: inline-flex; align-items: center; gap: 5px; color: var(--danger) !important; }
 .inline-error { margin: 12px 14px; padding: 9px 10px; color: var(--danger); background: var(--danger-soft); border: 1px solid #fecdca; border-radius: 7px; font-size: 12px; }
 
@@ -253,7 +254,7 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .account-health-title strong { color: var(--text-strong); font-size: 12px; }
 .account-health-title small, .account-health-switch small { color: var(--text-muted); font-size: 10px; font-weight: 400; }
 .account-health-switch { min-height: 34px; }
-.account-health-interval { display: flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 10px; font-weight: 600; .span { flex-shrink: 0; } }
+.account-health-interval { display: flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 10px; font-weight: 600; span { width: 200px; } }
 .account-health-interval input { height: 34px; }
 .health-summary { display: grid; grid-template-columns: 22px minmax(0, 1fr) 30px; align-items: start; gap: 9px; margin-bottom: 14px; padding: 11px 12px; color: var(--success); background: var(--success-soft); border: 1px solid #abefc6; border-radius: 8px; }
 .health-summary.has-errors { color: #b54708; background: #fffaeb; border-color: #fedf89; }
