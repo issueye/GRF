@@ -131,7 +131,7 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .danger-label { display: inline-flex; align-items: center; gap: 5px; color: var(--danger) !important; }
 .inline-error { margin: 12px 14px; padding: 9px 10px; color: var(--danger); background: var(--danger-soft); border: 1px solid #fecdca; border-radius: 7px; font-size: 12px; }
 
-.terminal-shell { display: grid; grid-template-rows: 38px minmax(0, 1fr); height: calc(100vh - 156px); min-height: 400px; overflow: hidden; border: 1px solid #252b34; border-radius: 9px; background: #10151c; }
+.terminal-shell { display: grid; grid-template-rows: 38px minmax(0, 1fr); height: calc(100vh - 184px); min-height: 400px; overflow: hidden; border: 1px solid #252b34; border-radius: 9px; background: #10151c; }
 .terminal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 13px; color: #aeb7c4; background: #171d25; border-bottom: 1px solid #252b34; font: 11px "Cascadia Code", Consolas, monospace; }
 .terminal-header span { display: flex; align-items: center; gap: 7px; }
 .terminal-header i { width: 7px; height: 7px; border-radius: 99px; background: #12b76a; box-shadow: 0 0 0 3px rgba(18,183,106,.1); }
