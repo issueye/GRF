@@ -91,6 +91,17 @@ export function App() {
 		return () => { active = false; window.clearInterval(timer); };
 	}, [view]);
 
+	useEffect(() => {
+		if (view !== 'gateway') return undefined;
+		let active = true;
+		const poll = () => gatewayStatus().then((status) => {
+			if (active) setGateway((current) => ({ ...current, status: status || {} }));
+		}).catch((err) => { if (active) setError(err?.message || String(err)); });
+		poll();
+		const timer = window.setInterval(poll, 2000);
+		return () => { active = false; window.clearInterval(timer); };
+	}, [view]);
+
   async function handleStart() {
     setBusy(true);
     try {

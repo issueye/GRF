@@ -7,5 +7,6 @@ export {
     AccountHealthSummary,
     Model,
     RequestLog,
-    Status
+    Status,
+    TokenUsage
 } from "./models.js";

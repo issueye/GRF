@@ -202,6 +202,28 @@ func TestCompatibilityStreamWriterConvertsFunctionCall(t *testing.T) {
 	}
 }
 
+func TestCompatibilityStreamWriterForwardsUsage(t *testing.T) {
+	target := &flushCaptureWriter{header: make(http.Header)}
+	writer := newCompatibilityStreamWriter(target, "grok-4.5", false)
+	writer.WriteHeader(http.StatusOK)
+	stream := strings.Join([]string{
+		`data: {"type":"response.output_text.delta","delta":"hi"}`,
+		`data: {"type":"response.completed","response":{"usage":{"input_tokens":11,"output_tokens":2,"total_tokens":13}}}`,
+		`data: [DONE]`,
+		``,
+	}, "\n\n")
+	if _, err := writer.Write([]byte(stream)); err != nil {
+		t.Fatal(err)
+	}
+	writer.Finish()
+	body := target.body.String()
+	for _, expected := range []string{`"prompt_tokens":11`, `"completion_tokens":2`, `"total_tokens":13`} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("stream missing %s: %s", expected, body)
+		}
+	}
+}
+
 func TestApplyDefaultStreamRespectsExplicitValue(t *testing.T) {
 	defaulted, err := applyDefaultStream([]byte(`{"model":"grok-4.5"}`), true)
 	if err != nil || !bytes.Contains(defaulted, []byte(`"stream":true`)) {

@@ -1,4 +1,4 @@
-import { CircleStop, Power, Save, Server, ShieldCheck } from 'lucide-react';
+import { CircleStop, Power, Save, Server, ShieldCheck, Sparkles } from 'lucide-react';
 
 const endpoints = [
   'GET /v1/models',
@@ -7,6 +7,11 @@ const endpoints = [
   'POST /v1/chat/completions',
   'POST /v1/messages',
 ];
+
+function formatCount(value) {
+  const n = Number(value) || 0;
+  return n.toLocaleString('en-US');
+}
 
 export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
   if (!settings) {
@@ -17,6 +22,11 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
   const running = Boolean(status?.running);
   const publicHost = !['127.0.0.1', '::1', 'localhost'].includes(settings.api_listen_host);
   const configuredAddress = `${settings.api_listen_host}:${settings.api_listen_port}`;
+  const usage = status?.token_usage || {};
+  const inputTokens = Number(usage.input_tokens) || 0;
+  const outputTokens = Number(usage.output_tokens) || 0;
+  const totalTokens = Number(usage.total_tokens) || (inputTokens + outputTokens);
+  const requestCount = Number(usage.request_count ?? status?.request_count) || 0;
 
   return (
     <section className="page gateway-page" aria-labelledby="gateway-title">
@@ -32,6 +42,22 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
       </div>
 
       {status?.error ? <div className="inline-error gateway-error">{status.error}</div> : null}
+
+      <section className="gateway-token-summary" aria-label="Token 汇总">
+        <div className="gateway-token-summary-head">
+          <span className="gateway-token-summary-icon"><Sparkles size={16} /></span>
+          <div>
+            <h2>Token 汇总</h2>
+            <p>自进程启动累计；清空请求日志时重置。</p>
+          </div>
+        </div>
+        <div className="gateway-token-grid">
+          <div className="gateway-token-card is-total"><span>总 Token</span><strong>{formatCount(totalTokens)}</strong></div>
+          <div className="gateway-token-card"><span>输入</span><strong>{formatCount(inputTokens)}</strong></div>
+          <div className="gateway-token-card"><span>输出</span><strong>{formatCount(outputTokens)}</strong></div>
+          <div className="gateway-token-card"><span>请求数</span><strong>{formatCount(requestCount)}</strong></div>
+        </div>
+      </section>
 
       <div className="gateway-layout">
         <section className="gateway-panel">

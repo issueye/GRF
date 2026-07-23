@@ -211,6 +211,9 @@ export class RequestLog {
     "model"?: string;
     "account_id"?: number;
     "user_agent"?: string;
+    "input_tokens"?: number;
+    "output_tokens"?: number;
+    "total_tokens"?: number;
 
     /** Creates a new RequestLog instance. */
     constructor($$source: Partial<RequestLog> = {}) {
@@ -245,10 +248,45 @@ export class RequestLog {
     }
 }
 
+export class TokenUsage {
+    "request_count": number;
+    "input_tokens": number;
+    "output_tokens": number;
+    "total_tokens": number;
+
+    /** Creates a new TokenUsage instance. */
+    constructor($$source: Partial<TokenUsage> = {}) {
+        if (!("request_count" in $$source)) {
+            this["request_count"] = 0;
+        }
+        if (!("input_tokens" in $$source)) {
+            this["input_tokens"] = 0;
+        }
+        if (!("output_tokens" in $$source)) {
+            this["output_tokens"] = 0;
+        }
+        if (!("total_tokens" in $$source)) {
+            this["total_tokens"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TokenUsage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TokenUsage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TokenUsage($$parsedSource as Partial<TokenUsage>);
+    }
+}
+
 export class Status {
     "running": boolean;
     "address": string;
     "error"?: string;
+    "token_usage": TokenUsage;
+    "request_count": number;
 
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {
@@ -258,8 +296,19 @@ export class Status {
         if (!("address" in $$source)) {
             this["address"] = "";
         }
+        if (!("token_usage" in $$source)) {
+            this["token_usage"] = new TokenUsage();
+        } else {
+            this["token_usage"] = TokenUsage.createFrom($$source["token_usage"]);
+        }
+        if (!("request_count" in $$source)) {
+            this["request_count"] = 0;
+        }
 
         Object.assign(this, $$source);
+        if ($$source["token_usage"]) {
+            this["token_usage"] = TokenUsage.createFrom($$source["token_usage"]);
+        }
     }
 
     /**

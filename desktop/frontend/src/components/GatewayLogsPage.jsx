@@ -13,9 +13,15 @@ export function GatewayLogsPage({ busy, logs, onClear, onRefresh }) {
   const visibleLogs = useMemo(() => sourceLogs.filter((entry) => {
     const statusMatch = filter === 'all' || (filter === 'success' && entry.status < 400) || (filter === 'error' && entry.status >= 400);
     const needle = query.trim().toLowerCase();
-    const textMatch = !needle || [entry.method, entry.path, entry.model, entry.account_id, entry.user_agent, entry.status].join(' ').toLowerCase().includes(needle);
+    const textMatch = !needle || [entry.method, entry.path, entry.model, entry.account_id, entry.user_agent, entry.status, entry.input_tokens, entry.output_tokens, entry.total_tokens].join(' ').toLowerCase().includes(needle);
     return statusMatch && textMatch;
 	}).reverse(), [filter, query, sourceLogs]);
+  const tokenSummary = useMemo(() => visibleLogs.reduce((acc, entry) => {
+    acc.input += Number(entry.input_tokens) || 0;
+    acc.output += Number(entry.output_tokens) || 0;
+    acc.total += Number(entry.total_tokens) || ((Number(entry.input_tokens) || 0) + (Number(entry.output_tokens) || 0));
+    return acc;
+  }, { input: 0, output: 0, total: 0 }), [visibleLogs]);
 	const togglePaused = () => { if (!paused) setFrozenLogs(logs); setPaused((value) => !value); };
 
   useEffect(() => {
@@ -34,19 +40,43 @@ export function GatewayLogsPage({ busy, logs, onClear, onRefresh }) {
         <div className="segmented-control" aria-label="状态筛选">{[['all', '全部'], ['success', '成功'], ['error', '错误']].map(([value, label]) => <button className={filter === value ? 'active' : ''} key={value} onClick={() => setFilter(value)} type="button">{label}</button>)}</div>
         <label className="log-search"><Search size={14} /><input onChange={(event) => setQuery(event.target.value)} placeholder="路径、模型、UA" value={query} /></label>
         <label className="compact-toggle log-autoscroll"><input checked={autoScroll} onChange={(event) => setAutoScroll(event.target.checked)} type="checkbox" /><span>自动滚动</span></label>
+		<span className="log-token-summary" title="当前筛选结果的 token 合计">tokens {tokenSummary.input}→{tokenSummary.output} Σ{tokenSummary.total}</span>
 		<span className="log-count">{visibleLogs.length} / {sourceLogs.length}</span>
       </div>
 
-      <div className="gateway-terminal" ref={terminalRef}>
-        <div className="gateway-terminal-head"><span>TIME</span><span>METHOD</span><span>STATUS</span><span>LATENCY</span><span>REQUEST</span></div>
+        <div className="gateway-terminal" ref={terminalRef}>
+        <div className="gateway-terminal-head"><span>TIME</span><span>METHOD</span><span>STATUS</span><span>LATENCY</span><span>TOKENS</span><span>REQUEST</span></div>
         {!visibleLogs.length ? <div className="gateway-terminal-empty"><i /><span>{paused ? '监控已暂停' : '等待网关请求'}</span></div> : visibleLogs.map((entry) => <LogLine entry={entry} key={entry.id} />)}
       </div>
     </section>
   );
 }
 
+function formatTokens(entry) {
+  const input = Number(entry.input_tokens) || 0;
+  const output = Number(entry.output_tokens) || 0;
+  const total = Number(entry.total_tokens) || (input + output);
+  if (!input && !output && !total) return '—';
+  return `${input}→${output} Σ${total}`;
+}
+
 function LogLine({ entry }) {
   const level = entry.status >= 500 ? 'server-error' : entry.status >= 400 ? 'client-error' : 'success';
   const time = new Date(entry.timestamp).toLocaleTimeString([], { hour12: false });
-  return <div className={`gateway-log-line ${level}`}><time>{time}</time><strong>{entry.method}</strong><span className="log-status">{entry.status}</span><span>{entry.duration_ms} ms</span><div><code>{entry.path}</code>{entry.model ? <span>model={entry.model}</span> : null}{entry.account_id ? <span>account={entry.account_id}</span> : null}{entry.user_agent ? <small title={entry.user_agent}>ua={entry.user_agent}</small> : null}</div></div>;
+  const tokens = formatTokens(entry);
+  return (
+    <div className={`gateway-log-line ${level}`}>
+      <time>{time}</time>
+      <strong>{entry.method}</strong>
+      <span className="log-status">{entry.status}</span>
+      <span>{entry.duration_ms} ms</span>
+      <span className="log-tokens" title={tokens === '—' ? '无 token 统计' : `input=${entry.input_tokens || 0} output=${entry.output_tokens || 0} total=${entry.total_tokens || 0}`}>{tokens}</span>
+      <div>
+        <code>{entry.path}</code>
+        {entry.model ? <span>model={entry.model}</span> : null}
+        {entry.account_id ? <span>account={entry.account_id}</span> : null}
+        {entry.user_agent ? <small title={entry.user_agent}>ua={entry.user_agent}</small> : null}
+      </div>
+    </div>
+  );
 }

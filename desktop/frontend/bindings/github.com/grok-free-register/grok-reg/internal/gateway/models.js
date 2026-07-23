@@ -410,6 +410,27 @@ export class RequestLog {
              */
             this["user_agent"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["input_tokens"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["output_tokens"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["total_tokens"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -422,6 +443,55 @@ export class RequestLog {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new RequestLog(/** @type {Partial<RequestLog>} */($$parsedSource));
+    }
+}
+
+export class TokenUsage {
+    /**
+     * Creates a new TokenUsage instance.
+     * @param {Partial<TokenUsage>} [$$source = {}]
+     */
+    constructor($$source = {}) {
+        if (!("request_count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["request_count"] = 0;
+        }
+        if (!("input_tokens" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["input_tokens"] = 0;
+        }
+        if (!("output_tokens" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["output_tokens"] = 0;
+        }
+        if (!("total_tokens" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["total_tokens"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TokenUsage instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TokenUsage}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TokenUsage(/** @type {Partial<TokenUsage>} */($$parsedSource));
     }
 }
 
@@ -452,8 +522,25 @@ export class Status {
              */
             this["error"] = undefined;
         }
+        if (!("token_usage" in $$source)) {
+            /**
+             * @member
+             * @type {TokenUsage}
+             */
+            this["token_usage"] = new TokenUsage();
+        }
+        if (!("request_count" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["request_count"] = 0;
+        }
 
         Object.assign(this, $$source);
+        if ($$source["token_usage"]) {
+            this["token_usage"] = TokenUsage.createFrom($$source["token_usage"]);
+        }
     }
 
     /**

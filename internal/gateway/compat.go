@@ -348,6 +348,9 @@ type compatibilityStreamWriter struct {
 	finished       bool
 	id             string
 	created        int64
+	inputTokens    int
+	outputTokens   int
+	totalTokens    int
 }
 
 type compatibilityStreamCall struct {
@@ -443,9 +446,19 @@ func (w *compatibilityStreamWriter) consume(line string) {
 			Name      string `json:"name"`
 			Arguments string `json:"arguments"`
 		} `json:"item"`
+		Response struct {
+			Usage *usagePayload `json:"usage"`
+		} `json:"response"`
+		Usage *usagePayload `json:"usage"`
 	}
 	if json.Unmarshal([]byte(data), &event) != nil {
 		return
+	}
+	if event.Usage != nil {
+		w.captureUsage(*event.Usage)
+	}
+	if event.Response.Usage != nil {
+		w.captureUsage(*event.Response.Usage)
 	}
 	switch event.Type {
 	case "response.output_text.delta":
@@ -465,6 +478,14 @@ func (w *compatibilityStreamWriter) consume(line string) {
 	case "response.completed", "response.failed":
 		w.finishStream()
 	}
+}
+
+func (w *compatibilityStreamWriter) captureUsage(u usagePayload) {
+	in, out, tot, ok := normalizeUsage(u)
+	if !ok {
+		return
+	}
+	w.inputTokens, w.outputTokens, w.totalTokens = in, out, tot
 }
 
 func (w *compatibilityStreamWriter) writeDelta(delta string) {
@@ -566,7 +587,7 @@ func (w *compatibilityStreamWriter) finishStream() {
 		if w.toolCalls {
 			stopReason = "tool_use"
 		}
-		writeSSE(w.target, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"output_tokens": 0}})
+		writeSSE(w.target, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"input_tokens": w.inputTokens, "output_tokens": w.outputTokens}})
 		writeSSE(w.target, "message_stop", map[string]any{"type": "message_stop"})
 	} else {
 		finishReason := "stop"
@@ -574,6 +595,13 @@ func (w *compatibilityStreamWriter) finishStream() {
 			finishReason = "tool_calls"
 		}
 		w.writeChatStreamDelta(map[string]any{}, finishReason)
+		if w.totalTokens > 0 || w.inputTokens > 0 || w.outputTokens > 0 {
+			writeSSEData(w.target, map[string]any{
+				"id": w.id, "object": "chat.completion.chunk", "created": w.created, "model": w.model,
+				"choices": []any{},
+				"usage":   map[string]any{"prompt_tokens": w.inputTokens, "completion_tokens": w.outputTokens, "total_tokens": w.totalTokens},
+			})
+		}
 		_, _ = fmt.Fprint(w.target, "data: [DONE]\n\n")
 	}
 	w.Flush()

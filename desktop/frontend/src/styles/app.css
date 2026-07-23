@@ -186,7 +186,21 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .gateway-hero > div > small { font: 11px "Cascadia Code", Consolas, monospace; }
 .gateway-power { min-width: 180px; }
 .gateway-error { margin-inline: 0; }
+.gateway-token-summary { margin-top: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.gateway-token-summary-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.gateway-token-summary-icon { display: grid; place-items: center; width: 32px; height: 32px; color: var(--info, #2563eb); background: #eef4ff; border-radius: 7px; flex-shrink: 0; }
+.gateway-token-summary-head h2 { margin: 0 0 2px; color: var(--text-strong); font-size: 13px; }
+.gateway-token-summary-head p { margin: 0; color: var(--text-muted); font-size: 11px; }
+.gateway-token-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.gateway-token-card { display: grid; gap: 4px; min-height: 64px; padding: 10px 12px; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 7px; }
+.gateway-token-card span { color: var(--text-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.gateway-token-card strong { color: var(--text-strong); font: 600 18px/1.2 "Cascadia Code", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.gateway-token-card.is-total { border-color: #bfdbfe; background: linear-gradient(180deg, #f0f7ff 0%, var(--surface-subtle) 100%); }
+.gateway-token-card.is-total strong { color: var(--info, #2563eb); }
 .gateway-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+@media (max-width: 900px) {
+  .gateway-token-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .gateway-panel { display: grid; align-content: start; gap: 16px; min-height: 180px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .gateway-panel label { display: grid; gap: 6px; color: var(--text-muted); font-size: 11px; font-weight: 600; }
 .gateway-panel label small { color: var(--text-soft); font-size: 10px; font-weight: 400; }
@@ -215,15 +229,17 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .log-search input { height: 28px; padding: 0; border: 0; background: transparent; }
 .log-search input:focus { border: 0; box-shadow: none; }
 .log-autoscroll { margin-left: auto; }
+.log-token-summary { color: var(--info, #2563eb); font: 10px "Cascadia Code", Consolas, monospace; white-space: nowrap; }
 .log-count { min-width: 58px; color: var(--text-soft); font: 10px "Cascadia Code", Consolas, monospace; text-align: right; }
 .gateway-terminal { min-height: 0; overflow: auto; color: #cbd5e1; background: #0d1117; border: 1px solid #252b34; border-radius: 8px; font: 11px/1.45 "Cascadia Code", Consolas, monospace; }
-.gateway-terminal-head, .gateway-log-line { display: grid; grid-template-columns: 78px 58px 54px 70px minmax(320px, 1fr); align-items: start; gap: 9px; min-width: 760px; padding: 8px 12px; }
+.gateway-terminal-head, .gateway-log-line { display: grid; grid-template-columns: 78px 58px 54px 70px 110px minmax(280px, 1fr); align-items: start; gap: 9px; min-width: 860px; padding: 8px 12px; }
 .gateway-terminal-head { position: sticky; z-index: 2; top: 0; color: #778195; background: #161b22; border-bottom: 1px solid #252b34; font-size: 9px; font-weight: 700; }
 .gateway-log-line { border-bottom: 1px solid rgba(148,163,184,.1); }
 .gateway-log-line:hover { background: rgba(148,163,184,.05); }
 .gateway-log-line time, .gateway-log-line > span { color: #7d8999; }
 .gateway-log-line > strong { color: #8bb9fe; font-size: 10px; }
 .gateway-log-line .log-status { color: #4ade80; font-weight: 700; }
+.gateway-log-line .log-tokens { color: #38bdf8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gateway-log-line.client-error .log-status { color: #fbbf24; }
 .gateway-log-line.server-error .log-status { color: #fb7185; }
 .gateway-log-line > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; min-width: 0; }

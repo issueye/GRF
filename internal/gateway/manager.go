@@ -14,9 +14,11 @@ import (
 )
 
 type Status struct {
-	Running bool   `json:"running"`
-	Address string `json:"address"`
-	Error   string `json:"error,omitempty"`
+	Running      bool       `json:"running"`
+	Address      string     `json:"address"`
+	Error        string     `json:"error,omitempty"`
+	TokenUsage   TokenUsage `json:"token_usage"`
+	RequestCount int64      `json:"request_count"`
 }
 
 type Manager struct {
@@ -112,12 +114,18 @@ func (m *Manager) Stop(ctx context.Context) error {
 func (m *Manager) Status() Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.status
+	status := m.status
+	usage := m.logs.TokenUsage()
+	status.TokenUsage = usage
+	status.RequestCount = usage.RequestCount
+	return status
 }
 
 func (m *Manager) RequestLogs(limit int) []RequestLog { return m.logs.Snapshot(limit) }
 
 func (m *Manager) ClearRequestLogs() { m.logs.Clear() }
+
+func (m *Manager) TokenUsage() TokenUsage { return m.logs.TokenUsage() }
 
 func validateListenAddress(address string) (string, error) {
 	address = strings.TrimSpace(address)

@@ -36,11 +36,31 @@ const demoSettings = {
 };
 
 const demoGateway = {
-  status: { running: false, address: '' },
+  status: {
+    running: false,
+    address: '',
+    request_count: 1,
+    token_usage: { request_count: 1, input_tokens: 128, output_tokens: 56, total_tokens: 184 },
+  },
   accounts: [],
   models: [{ id: 'grok-4.5', object: 'model', owned_by: 'xai' }],
   keys: [],
-	logs: [],
+	logs: [
+		{
+			id: 1,
+			timestamp: new Date().toISOString(),
+			method: 'POST',
+			path: '/v1/chat/completions',
+			status: 200,
+			duration_ms: 842,
+			model: 'grok-4.5',
+			account_id: 1,
+			user_agent: 'preview',
+			input_tokens: 128,
+			output_tokens: 56,
+			total_tokens: 184,
+		},
+	],
 };
 
 function hasNativeRuntime() {
@@ -141,6 +161,11 @@ export async function listGatewayRequestLogs() {
 export async function clearGatewayRequestLogs() {
 	if (hasNativeRuntime()) return invoke('ClearGatewayRequestLogs');
 	demoGateway.logs = [];
+	demoGateway.status = {
+		...demoGateway.status,
+		request_count: 0,
+		token_usage: { request_count: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+	};
 }
 
 export async function listGatewayAccounts() {
