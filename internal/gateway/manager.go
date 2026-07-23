@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,15 +24,25 @@ type Manager struct {
 	selector *Selector
 	build    *BuildClient
 
-	mu       sync.Mutex
-	server   *http.Server
-	listener net.Listener
-	status   Status
+	mu            sync.Mutex
+	server        *http.Server
+	listener      net.Listener
+	status        Status
+	logs          *RequestLogBuffer
+	defaultStream atomic.Bool
 }
 
 func NewManager(store *Store) *Manager {
-	return &Manager{store: store, selector: NewSelector(store), build: NewBuildClient()}
+	return &Manager{store: store, selector: NewSelector(store), build: NewBuildClient(), logs: NewRequestLogBuffer(defaultRequestLogCap)}
 }
+
+func (m *Manager) SetUpstreamProxy(proxyURL string) error {
+	return m.build.SetProxy(proxyURL)
+}
+
+func (m *Manager) SetDefaultStream(enabled bool) { m.defaultStream.Store(enabled) }
+
+func (m *Manager) DefaultStream() bool { return m.defaultStream.Load() }
 
 func (m *Manager) Start(address string) error {
 	address, err := validateListenAddress(address)
@@ -100,6 +111,10 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	return m.status
 }
+
+func (m *Manager) RequestLogs(limit int) []RequestLog { return m.logs.Snapshot(limit) }
+
+func (m *Manager) ClearRequestLogs() { m.logs.Clear() }
 
 func validateListenAddress(address string) (string, error) {
 	address = strings.TrimSpace(address)

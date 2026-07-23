@@ -69,9 +69,10 @@ type Config struct {
 	CPAUploadVerify       bool
 	CPAUploadMode         string // multipart | json
 
-	APIEnabled    bool
-	APIListenHost string
-	APIListenPort int
+	APIEnabled       bool
+	APIListenHost    string
+	APIListenPort    int
+	APIStreamDefault bool
 }
 
 func Defaults() Config {
@@ -109,6 +110,7 @@ func Defaults() Config {
 		APIEnabled:            false,
 		APIListenHost:         "127.0.0.1",
 		APIListenPort:         8000,
+		APIStreamDefault:      false,
 	}
 }
 
@@ -168,6 +170,7 @@ func Save(path string, cfg Config) error {
 	b.WriteString(fmt.Sprintf("API_ENABLED=%s\n", bool01(cfg.APIEnabled)))
 	b.WriteString(fmt.Sprintf("API_LISTEN_HOST=%s\n", cfg.APIListenHost))
 	b.WriteString(fmt.Sprintf("API_LISTEN_PORT=%d\n", cfg.APIListenPort))
+	b.WriteString(fmt.Sprintf("API_STREAM_DEFAULT=%s\n", bool01(cfg.APIStreamDefault)))
 	return os.WriteFile(path, []byte(b.String()), 0o600)
 }
 
@@ -400,6 +403,9 @@ func applyMap(cfg *Config, env map[string]string) {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.APIListenPort = n
 		}
+	}
+	if v, ok := env["API_STREAM_DEFAULT"]; ok {
+		cfg.APIStreamDefault = truthy(v)
 	}
 }
 

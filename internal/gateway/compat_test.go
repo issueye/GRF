@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -10,6 +11,18 @@ import (
 	"testing"
 	"time"
 )
+
+type flushCaptureWriter struct {
+	header  http.Header
+	body    bytes.Buffer
+	status  int
+	flushes int
+}
+
+func (w *flushCaptureWriter) Header() http.Header             { return w.header }
+func (w *flushCaptureWriter) WriteHeader(status int)          { w.status = status }
+func (w *flushCaptureWriter) Write(value []byte) (int, error) { return w.body.Write(value) }
+func (w *flushCaptureWriter) Flush()                          { w.flushes++ }
 
 func newCompatibilityManager(t *testing.T, upstream http.Handler) (*Manager, string) {
 	t.Helper()
@@ -76,5 +89,34 @@ func TestStoredResponseIsScopedToAPIKey(t *testing.T) {
 	manager.routes().ServeHTTP(getRecorder, get)
 	if getRecorder.Code != http.StatusOK || !strings.Contains(getRecorder.Body.String(), "resp_saved") {
 		t.Fatalf("status=%d body=%s", getRecorder.Code, getRecorder.Body.String())
+	}
+}
+
+func TestCompatibilityStreamWriterFlushesBeforeFinish(t *testing.T) {
+	target := &flushCaptureWriter{header: make(http.Header)}
+	writer := newCompatibilityStreamWriter(target, "grok-4.5", false)
+	writer.WriteHeader(http.StatusOK)
+	chunk := []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\n")
+	if _, err := writer.Write(chunk); err != nil {
+		t.Fatal(err)
+	}
+	writer.Flush()
+	if target.flushes == 0 || !strings.Contains(target.body.String(), `"content":"hello"`) || strings.Contains(target.body.String(), "[DONE]") {
+		t.Fatalf("before finish: flushes=%d body=%s", target.flushes, target.body.String())
+	}
+	writer.Finish()
+	if !strings.Contains(target.body.String(), "[DONE]") {
+		t.Fatalf("after finish body=%s", target.body.String())
+	}
+}
+
+func TestApplyDefaultStreamRespectsExplicitValue(t *testing.T) {
+	defaulted, err := applyDefaultStream([]byte(`{"model":"grok-4.5"}`), true)
+	if err != nil || !bytes.Contains(defaulted, []byte(`"stream":true`)) {
+		t.Fatalf("defaulted=%s err=%v", defaulted, err)
+	}
+	explicit, err := applyDefaultStream([]byte(`{"model":"grok-4.5","stream":false}`), true)
+	if err != nil || !bytes.Contains(explicit, []byte(`"stream":false`)) {
+		t.Fatalf("explicit=%s err=%v", explicit, err)
 	}
 }

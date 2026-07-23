@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -24,7 +25,7 @@ func (m *Manager) routes() http.Handler {
 	mux.Handle("DELETE /v1/responses/{response_id}", m.authenticate(http.HandlerFunc(m.handleDeleteResponse)))
 	mux.Handle("POST /v1/chat/completions", m.authenticate(http.HandlerFunc(m.handleChatCompletions)))
 	mux.Handle("POST /v1/messages", m.authenticate(http.HandlerFunc(m.handleMessages)))
-	return mux
+	return m.logs.Middleware(mux)
 }
 
 const maxInferenceBodyBytes = 32 << 20
@@ -40,6 +41,13 @@ func (m *Manager) handleResponsesPath(w http.ResponseWriter, r *http.Request, pa
 		writeAPIError(w, http.StatusRequestEntityTooLarge, "request_too_large", "Request body exceeds 32 MiB")
 		return
 	}
+	if path == "/responses" {
+		body, err = applyDefaultStream(body, m.DefaultStream())
+		if err != nil {
+			writeAPIError(w, http.StatusBadRequest, "invalid_request_error", "Request body must be a JSON object")
+			return
+		}
+	}
 	var metadata struct {
 		Model  string `json:"model"`
 		Stream bool   `json:"stream"`
@@ -49,6 +57,7 @@ func (m *Manager) handleResponsesPath(w http.ResponseWriter, r *http.Request, pa
 		writeAPIError(w, http.StatusBadRequest, "invalid_request_error", "A valid model is required")
 		return
 	}
+	r.Header.Set(requestModelHeader, strings.TrimSpace(metadata.Model))
 	credential, release, err := m.selector.Acquire(r.Context())
 	if err != nil {
 		if errors.Is(err, ErrNoAvailableAccount) {
@@ -59,6 +68,7 @@ func (m *Manager) handleResponsesPath(w http.ResponseWriter, r *http.Request, pa
 		return
 	}
 	defer release()
+	r.Header.Set(requestAccountHeader, strconv.FormatInt(credential.ID, 10))
 	originalAccessToken := credential.AccessToken
 	response, credential, err := m.build.Forward(r.Context(), credential, path, body, metadata.Model)
 	if err != nil {
@@ -116,6 +126,21 @@ func (m *Manager) handleResponsesPath(w http.ResponseWriter, r *http.Request, pa
 		return
 	}
 	_, _ = io.Copy(w, response.Body)
+}
+
+func applyDefaultStream(body []byte, enabled bool) ([]byte, error) {
+	if !enabled {
+		return body, nil
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(body, &payload); err != nil || payload == nil {
+		return nil, fmt.Errorf("request body must be a JSON object")
+	}
+	if _, exists := payload["stream"]; exists {
+		return body, nil
+	}
+	payload["stream"] = json.RawMessage("true")
+	return json.Marshal(payload)
 }
 
 func (m *Manager) handleGetResponse(w http.ResponseWriter, r *http.Request) {

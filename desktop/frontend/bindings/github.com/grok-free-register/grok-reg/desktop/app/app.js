@@ -24,6 +24,13 @@ export function Bootstrap() {
 }
 
 /**
+ * @returns {$CancellablePromise<void>}
+ */
+export function ClearGatewayRequestLogs() {
+    return $Call.ByID(1063812684);
+}
+
+/**
  * @param {string} name
  * @returns {$CancellablePromise<$models.CreatedAPIKey>}
  */
@@ -59,6 +66,14 @@ export function GatewayStatus() {
 }
 
 /**
+ * @param {number} id
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetAPIKeySecret(id) {
+    return $Call.ByID(1639655270, id);
+}
+
+/**
  * @returns {$CancellablePromise<$models.Dashboard>}
  */
 export function GetDashboard() {
@@ -77,11 +92,21 @@ export function GetSettings() {
 }
 
 /**
+ * @param {string[]} paths
+ * @returns {$CancellablePromise<$models.GatewayAccountImportResult>}
+ */
+export function ImportGatewayAccounts(paths) {
+    return $Call.ByID(2318896960, paths).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<gateway$0.APIKey[]>}
  */
 export function ListAPIKeys() {
     return $Call.ByID(1193353329).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType6($result);
+        return $$createType7($result);
     }));
 }
 
@@ -90,7 +115,7 @@ export function ListAPIKeys() {
  */
 export function ListGatewayAccounts() {
     return $Call.ByID(518095).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType9($result);
     }));
 }
 
@@ -99,7 +124,17 @@ export function ListGatewayAccounts() {
  */
 export function ListGatewayModels() {
     return $Call.ByID(3640931529).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType11($result);
+    }));
+}
+
+/**
+ * @param {number} limit
+ * @returns {$CancellablePromise<gateway$0.RequestLog[]>}
+ */
+export function ListGatewayRequestLogs(limit) {
+    return $Call.ByID(1644008471, limit).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType13($result);
     }));
 }
 
@@ -109,7 +144,7 @@ export function ListGatewayModels() {
  */
 export function ListRuns(limit) {
     return $Call.ByID(2950642485, limit).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType15($result);
     }));
 }
 
@@ -151,7 +186,7 @@ export function SetAPIKeyEnabled(id, enabled) {
  */
 export function Start(request) {
     return $Call.ByID(3115171033, request).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType13($result);
+        return $$createType16($result);
     }));
 }
 
@@ -198,12 +233,15 @@ const $$createType1 = $models.CreatedAPIKey.createFrom;
 const $$createType2 = gateway$0.Status.createFrom;
 const $$createType3 = $models.Dashboard.createFrom;
 const $$createType4 = $models.Settings.createFrom;
-const $$createType5 = gateway$0.APIKey.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = gateway$0.Account.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = gateway$0.Model.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $models.RunEntry.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = $models.StartResult.createFrom;
+const $$createType5 = $models.GatewayAccountImportResult.createFrom;
+const $$createType6 = gateway$0.APIKey.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = gateway$0.Account.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = gateway$0.Model.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = gateway$0.RequestLog.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = $models.RunEntry.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = $models.StartResult.createFrom;

@@ -83,6 +83,21 @@ func TestAPIKeyLifecycle(t *testing.T) {
 	if strings.Contains(stored, secret) {
 		t.Fatal("database contains plaintext API key")
 	}
+	var encryptedSecret string
+	if err := store.db.QueryRowContext(ctx, `SELECT secret_ciphertext FROM gateway_api_keys WHERE id = ?`, key.ID).Scan(&encryptedSecret); err != nil {
+		t.Fatal(err)
+	}
+	if encryptedSecret == "" || strings.Contains(encryptedSecret, secret) {
+		t.Fatal("API key secret was not encrypted")
+	}
+	recovered, err := store.GetAPIKeySecret(ctx, key.ID)
+	if err != nil || recovered != secret {
+		t.Fatalf("recover key: value=%q err=%v", recovered, err)
+	}
+	keys, err := store.ListAPIKeys(ctx)
+	if err != nil || len(keys) != 1 || !keys[0].HasSecret {
+		t.Fatalf("list key metadata: keys=%+v err=%v", keys, err)
+	}
 	verified, err := store.VerifyAPIKey(ctx, secret)
 	if err != nil || verified.ID != key.ID || verified.LastUsedAt == nil {
 		t.Fatalf("verify key: value=%+v err=%v", verified, err)

@@ -87,6 +87,7 @@ type Settings struct {
 	APIEnabled        bool   `json:"api_enabled"`
 	APIListenHost     string `json:"api_listen_host"`
 	APIListenPort     int    `json:"api_listen_port"`
+	APIStreamDefault  bool   `json:"api_stream_default"`
 }
 
 type GatewayAccountUpdate struct {
@@ -94,6 +95,19 @@ type GatewayAccountUpdate struct {
 	Name          string `json:"name"`
 	Enabled       bool   `json:"enabled"`
 	MaxConcurrent int    `json:"max_concurrent"`
+}
+
+type GatewayAccountImportFailure struct {
+	File  string `json:"file"`
+	Error string `json:"error"`
+}
+
+type GatewayAccountImportResult struct {
+	SelectedFiles    int                           `json:"selected_files"`
+	SuccessfulFiles  int                           `json:"successful_files"`
+	FailedFiles      int                           `json:"failed_files"`
+	ImportedAccounts int                           `json:"imported_accounts"`
+	Failures         []GatewayAccountImportFailure `json:"failures"`
 }
 
 type CreatedAPIKey struct {
@@ -129,6 +143,11 @@ func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) er
 		return nil
 	}
 	if cfg.APIEnabled {
+		if err := a.gatewayManager.SetUpstreamProxy(cfg.RegisterProxy); err != nil {
+			a.gatewayErr = err
+			return nil
+		}
+		a.gatewayManager.SetDefaultStream(cfg.APIStreamDefault)
 		a.gatewayErr = a.gatewayManager.Start(net.JoinHostPort(cfg.APIListenHost, fmt.Sprint(cfg.APIListenPort)))
 	}
 	return nil
@@ -337,6 +356,7 @@ func (a *App) GetSettings() (Settings, error) {
 		LiteSolverURL: cfg.LiteSolverURL, CPAUploadEnabled: cfg.CPAUploadEnabled,
 		CPAManagementBase: cfg.CPAManagementBase, APIEnabled: cfg.APIEnabled,
 		APIListenHost: cfg.APIListenHost, APIListenPort: cfg.APIListenPort,
+		APIStreamDefault: cfg.APIStreamDefault,
 	}, nil
 }
 
@@ -376,11 +396,12 @@ func (a *App) SaveSettings(settings Settings) error {
 		"API_ENABLED":         bool01(settings.APIEnabled),
 		"API_LISTEN_HOST":     host,
 		"API_LISTEN_PORT":     fmt.Sprint(settings.APIListenPort),
+		"API_STREAM_DEFAULT":  bool01(settings.APIStreamDefault),
 	}
 	if err := patchEnvFile(p.Config, updates); err != nil {
 		return err
 	}
-	return a.applyGatewaySettings(settings.APIEnabled, net.JoinHostPort(host, fmt.Sprint(settings.APIListenPort)))
+	return a.applyGatewaySettings(settings.APIEnabled, net.JoinHostPort(host, fmt.Sprint(settings.APIListenPort)), proxy, settings.APIStreamDefault)
 }
 
 func (a *App) GatewayStatus() gateway.Status {
@@ -391,6 +412,27 @@ func (a *App) GatewayStatus() gateway.Status {
 		return gateway.Status{Error: a.gatewayErr.Error()}
 	}
 	return a.gatewayManager.Status()
+}
+
+func (a *App) ListGatewayRequestLogs(limit int) ([]gateway.RequestLog, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	if a.gatewayErr != nil {
+		return nil, a.gatewayErr
+	}
+	return a.gatewayManager.RequestLogs(limit), nil
+}
+
+func (a *App) ClearGatewayRequestLogs() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	if a.gatewayErr != nil {
+		return a.gatewayErr
+	}
+	a.gatewayManager.ClearRequestLogs()
+	return nil
 }
 
 func (a *App) StartGateway() error {
@@ -417,6 +459,71 @@ func (a *App) ListGatewayAccounts() ([]gateway.Account, error) {
 		return nil, err
 	}
 	return store.ListAccounts(context.Background())
+}
+
+func (a *App) ImportGatewayAccounts(paths []string) (GatewayAccountImportResult, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return GatewayAccountImportResult{}, err
+	}
+	return importGatewayAccountFiles(context.Background(), store, paths), nil
+}
+
+func importGatewayAccountFiles(ctx context.Context, store *gateway.Store, paths []string) GatewayAccountImportResult {
+	const maxFiles = 500
+	const maxFileSize = 4 << 20
+
+	result := GatewayAccountImportResult{Failures: make([]GatewayAccountImportFailure, 0)}
+	result.SelectedFiles = len(paths)
+	if len(paths) > maxFiles {
+		skipped := len(paths) - maxFiles
+		paths = paths[:maxFiles]
+		result.FailedFiles += skipped
+		result.Failures = append(result.Failures, GatewayAccountImportFailure{
+			File: "批量选择", Error: fmt.Sprintf("一次最多导入 %d 个文件，另有 %d 个文件未处理", maxFiles, skipped),
+		})
+	}
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		name := filepath.Base(strings.TrimSpace(path))
+		if name == "." || name == "" {
+			name = "未知文件"
+		}
+		fail := func(err error) {
+			result.FailedFiles++
+			result.Failures = append(result.Failures, GatewayAccountImportFailure{File: name, Error: err.Error()})
+		}
+		if !strings.EqualFold(filepath.Ext(path), ".json") {
+			fail(fmt.Errorf("仅支持 JSON 格式的 CPA 文件"))
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			fail(fmt.Errorf("读取文件信息: %w", err))
+			continue
+		}
+		if !info.Mode().IsRegular() {
+			fail(fmt.Errorf("所选路径不是普通文件"))
+			continue
+		}
+		if info.Size() > maxFileSize {
+			fail(fmt.Errorf("文件超过 4 MiB 限制"))
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fail(fmt.Errorf("读取文件: %w", err))
+			continue
+		}
+		accounts, err := store.ImportAccountDocument(ctx, data)
+		if err != nil {
+			fail(err)
+			continue
+		}
+		result.SuccessfulFiles++
+		result.ImportedAccounts += len(accounts)
+	}
+	return result
 }
 
 func (a *App) UpdateGatewayAccount(update GatewayAccountUpdate) error {
@@ -454,6 +561,14 @@ func (a *App) CreateAPIKey(name string) (CreatedAPIKey, error) {
 	return CreatedAPIKey{Key: key, Secret: secret}, err
 }
 
+func (a *App) GetAPIKeySecret(id int64) (string, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return "", err
+	}
+	return store.GetAPIKeySecret(context.Background(), id)
+}
+
 func (a *App) SetAPIKeyEnabled(id int64, enabled bool) error {
 	store, err := a.gatewayStoreReady()
 	if err != nil {
@@ -470,13 +585,17 @@ func (a *App) DeleteAPIKey(id int64) error {
 	return store.DeleteAPIKey(context.Background(), id)
 }
 
-func (a *App) applyGatewaySettings(enabled bool, address string) error {
+func (a *App) applyGatewaySettings(enabled bool, address, proxyURL string, defaultStream bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.openGatewayLocked()
 	if a.gatewayErr != nil {
 		return a.gatewayErr
 	}
+	if err := a.gatewayManager.SetUpstreamProxy(proxyURL); err != nil {
+		return err
+	}
+	a.gatewayManager.SetDefaultStream(defaultStream)
 	status := a.gatewayManager.Status()
 	if status.Running && (!enabled || status.Address != address) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

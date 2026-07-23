@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 var schemaV1 = []string{
 	`CREATE TABLE IF NOT EXISTS gateway_accounts (
@@ -64,6 +64,10 @@ var schemaV1 = []string{
 	)`,
 }
 
+var schemaV2 = []string{
+	`ALTER TABLE gateway_api_keys ADD COLUMN secret_ciphertext TEXT NOT NULL DEFAULT ''`,
+}
+
 func migrate(ctx context.Context, db *sql.DB) error {
 	var version int
 	if err := db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
@@ -80,9 +84,18 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("begin gateway migration: %w", err)
 	}
 	defer tx.Rollback()
-	for _, statement := range schemaV1 {
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply gateway schema: %w", err)
+	migrations := []struct {
+		version    int
+		statements []string
+	}{{1, schemaV1}, {2, schemaV2}}
+	for _, migration := range migrations {
+		if version >= migration.version {
+			continue
+		}
+		for _, statement := range migration.statements {
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply gateway schema v%d: %w", migration.version, err)
+			}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion)); err != nil {

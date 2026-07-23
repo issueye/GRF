@@ -57,6 +57,13 @@ export class APIKey {
              */
             this["last_used_at"] = undefined;
         }
+        if (!("has_secret" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["has_secret"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -247,6 +254,90 @@ export class Model {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Model(/** @type {Partial<Model>} */($$parsedSource));
+    }
+}
+
+export class RequestLog {
+    /**
+     * Creates a new RequestLog instance.
+     * @param {Partial<RequestLog>} [$$source = {}] - The source object to create the RequestLog.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("timestamp" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["timestamp"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("method" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["method"] = "";
+        }
+        if (!("path" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path"] = "";
+        }
+        if (!("status" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["status"] = 0;
+        }
+        if (!("duration_ms" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["duration_ms"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["model"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["account_id"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["user_agent"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RequestLog instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {RequestLog}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RequestLog(/** @type {Partial<RequestLog>} */($$parsedSource));
     }
 }
 

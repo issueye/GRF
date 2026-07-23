@@ -56,4 +56,5 @@ type APIKey struct {
 	Enabled    bool       `json:"enabled"`
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	HasSecret  bool       `json:"has_secret"`
 }

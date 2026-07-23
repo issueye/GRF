@@ -8,7 +8,11 @@ export {
 
 export {
     BootstrapInfo,
+    CreatedAPIKey,
     Dashboard,
+    GatewayAccountImportFailure,
+    GatewayAccountImportResult,
+    GatewayAccountUpdate,
     RunEntry,
     Settings,
     StartRequest,

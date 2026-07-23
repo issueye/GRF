@@ -7,6 +7,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as gateway$0 from "../../internal/gateway/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as state$0 from "../../internal/state/models.js";
 
 export class BootstrapInfo {
@@ -51,6 +54,35 @@ export class BootstrapInfo {
     static createFrom($$source: any = {}): BootstrapInfo {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new BootstrapInfo($$parsedSource as Partial<BootstrapInfo>);
+    }
+}
+
+export class CreatedAPIKey {
+    "key": gateway$0.APIKey;
+    "secret": string;
+
+    /** Creates a new CreatedAPIKey instance. */
+    constructor($$source: Partial<CreatedAPIKey> = {}) {
+        if (!("key" in $$source)) {
+            this["key"] = (new gateway$0.APIKey());
+        }
+        if (!("secret" in $$source)) {
+            this["secret"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CreatedAPIKey instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CreatedAPIKey {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("key" in $$parsedSource) {
+            $$parsedSource["key"] = $$createField0_0($$parsedSource["key"]);
+        }
+        return new CreatedAPIKey($$parsedSource as Partial<CreatedAPIKey>);
     }
 }
 
@@ -138,12 +170,111 @@ export class Dashboard {
      * Creates a new Dashboard instance from a string or object.
      */
     static createFrom($$source: any = {}): Dashboard {
-        const $$createField10_0 = $$createType0;
+        const $$createField10_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("workers" in $$parsedSource) {
             $$parsedSource["workers"] = $$createField10_0($$parsedSource["workers"]);
         }
         return new Dashboard($$parsedSource as Partial<Dashboard>);
+    }
+}
+
+export class GatewayAccountImportFailure {
+    "file": string;
+    "error": string;
+
+    /** Creates a new GatewayAccountImportFailure instance. */
+    constructor($$source: Partial<GatewayAccountImportFailure> = {}) {
+        if (!("file" in $$source)) {
+            this["file"] = "";
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountImportFailure instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GatewayAccountImportFailure {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GatewayAccountImportFailure($$parsedSource as Partial<GatewayAccountImportFailure>);
+    }
+}
+
+export class GatewayAccountImportResult {
+    "selected_files": number;
+    "successful_files": number;
+    "failed_files": number;
+    "imported_accounts": number;
+    "failures": GatewayAccountImportFailure[];
+
+    /** Creates a new GatewayAccountImportResult instance. */
+    constructor($$source: Partial<GatewayAccountImportResult> = {}) {
+        if (!("selected_files" in $$source)) {
+            this["selected_files"] = 0;
+        }
+        if (!("successful_files" in $$source)) {
+            this["successful_files"] = 0;
+        }
+        if (!("failed_files" in $$source)) {
+            this["failed_files"] = 0;
+        }
+        if (!("imported_accounts" in $$source)) {
+            this["imported_accounts"] = 0;
+        }
+        if (!("failures" in $$source)) {
+            this["failures"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountImportResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GatewayAccountImportResult {
+        const $$createField4_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failures" in $$parsedSource) {
+            $$parsedSource["failures"] = $$createField4_0($$parsedSource["failures"]);
+        }
+        return new GatewayAccountImportResult($$parsedSource as Partial<GatewayAccountImportResult>);
+    }
+}
+
+export class GatewayAccountUpdate {
+    "id": number;
+    "name": string;
+    "enabled": boolean;
+    "max_concurrent": number;
+
+    /** Creates a new GatewayAccountUpdate instance. */
+    constructor($$source: Partial<GatewayAccountUpdate> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = 0;
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("max_concurrent" in $$source)) {
+            this["max_concurrent"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountUpdate instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GatewayAccountUpdate {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GatewayAccountUpdate($$parsedSource as Partial<GatewayAccountUpdate>);
     }
 }
 
@@ -195,6 +326,10 @@ export class Settings {
     "lite_solver_url": string;
     "cpa_upload_enabled": boolean;
     "cpa_management_base": string;
+    "api_enabled": boolean;
+    "api_listen_host": string;
+    "api_listen_port": number;
+    "api_stream_default": boolean;
 
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
@@ -227,6 +362,18 @@ export class Settings {
         }
         if (!("cpa_management_base" in $$source)) {
             this["cpa_management_base"] = "";
+        }
+        if (!("api_enabled" in $$source)) {
+            this["api_enabled"] = false;
+        }
+        if (!("api_listen_host" in $$source)) {
+            this["api_listen_host"] = "";
+        }
+        if (!("api_listen_port" in $$source)) {
+            this["api_listen_port"] = 0;
+        }
+        if (!("api_stream_default" in $$source)) {
+            this["api_stream_default"] = false;
         }
 
         Object.assign(this, $$source);
@@ -300,4 +447,7 @@ export class StartResult {
 }
 
 // Private type creation functions
-const $$createType0 = state$0.Workers.createFrom;
+const $$createType0 = gateway$0.APIKey.createFrom;
+const $$createType1 = state$0.Workers.createFrom;
+const $$createType2 = GatewayAccountImportFailure.createFrom;
+const $$createType3 = $Create.Array($$createType2);

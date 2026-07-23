@@ -1,4 +1,4 @@
-import { Call, Window } from '@wailsio/runtime';
+import { Call, Dialogs, Window } from '@wailsio/runtime';
 
 const demoDashboard = {
   status: 'stopped',
@@ -30,6 +30,7 @@ const demoSettings = {
   api_enabled: false,
   api_listen_host: '127.0.0.1',
   api_listen_port: 8000,
+	api_stream_default: false,
 };
 
 const demoGateway = {
@@ -37,6 +38,7 @@ const demoGateway = {
   accounts: [],
   models: [{ id: 'grok-4.5', object: 'model', owned_by: 'xai' }],
   keys: [],
+	logs: [],
 };
 
 function hasNativeRuntime() {
@@ -130,8 +132,37 @@ export async function gatewayStatus() {
   return hasNativeRuntime() ? invoke('GatewayStatus') : demoGateway.status;
 }
 
+export async function listGatewayRequestLogs() {
+	return hasNativeRuntime() ? invoke('ListGatewayRequestLogs', 500) : demoGateway.logs;
+}
+
+export async function clearGatewayRequestLogs() {
+	if (hasNativeRuntime()) return invoke('ClearGatewayRequestLogs');
+	demoGateway.logs = [];
+}
+
 export async function listGatewayAccounts() {
   return hasNativeRuntime() ? invoke('ListGatewayAccounts') : demoGateway.accounts;
+}
+
+export async function importGatewayAccounts() {
+  if (!hasNativeRuntime()) {
+    return { selected_files: 0, successful_files: 0, failed_files: 0, imported_accounts: 0, failures: [] };
+  }
+  const paths = await Dialogs.OpenFile({
+    Title: '选择 CPA 账号文件',
+    Message: '可按住 Ctrl 或 Shift 多选 JSON 文件',
+    ButtonText: '导入',
+    CanChooseFiles: true,
+    CanChooseDirectories: false,
+    AllowsMultipleSelection: true,
+    AllowsOtherFiletypes: false,
+    Filters: [{ DisplayName: 'CPA JSON', Pattern: '*.json' }],
+  });
+  if (!paths.length) {
+    return { selected_files: 0, successful_files: 0, failed_files: 0, imported_accounts: 0, failures: [] };
+  }
+  return invoke('ImportGatewayAccounts', paths);
 }
 
 export async function updateGatewayAccount(account) {
@@ -156,9 +187,16 @@ export async function listAPIKeys() {
 export async function createAPIKey(name) {
   if (hasNativeRuntime()) return invoke('CreateAPIKey', name);
   const secret = `grf_preview_${Date.now()}`;
-  const key = { id: Date.now(), name, prefix: secret.slice(0, 12), enabled: true, created_at: new Date().toISOString() };
+	const key = { id: Date.now(), name, prefix: secret.slice(0, 12), enabled: true, has_secret: true, created_at: new Date().toISOString(), _secret: secret };
   demoGateway.keys.unshift(key);
   return { key, secret };
+}
+
+export async function getAPIKeySecret(id) {
+	if (hasNativeRuntime()) return invoke('GetAPIKeySecret', id);
+	const key = demoGateway.keys.find((item) => item.id === id);
+	if (!key?._secret) throw new Error('该密钥由旧版本创建，无法恢复');
+	return key._secret;
 }
 
 export async function setAPIKeyEnabled(id, enabled) {

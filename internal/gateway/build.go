@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,18 +26,47 @@ type BuildClient struct {
 	BaseURL    string
 	TokenURL   string
 	agentID    string
+	proxyURL   atomic.Value
 }
 
 func NewBuildClient() *BuildClient {
+	client := &BuildClient{BaseURL: defaultBuildBaseURL, TokenURL: defaultBuildTokenURL, agentID: randomIdentifier()}
+	client.proxyURL.Store("")
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment, ForceAttemptHTTP2: true,
+		Proxy: client.proxy, ForceAttemptHTTP2: true,
 		MaxIdleConns: 64, MaxIdleConnsPerHost: 32, IdleConnTimeout: 90 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 5 * time.Minute,
 	}
-	return &BuildClient{
-		HTTPClient: &http.Client{Transport: transport}, BaseURL: defaultBuildBaseURL,
-		TokenURL: defaultBuildTokenURL, agentID: randomIdentifier(),
+	client.HTTPClient = &http.Client{Transport: transport}
+	return client
+}
+
+func (c *BuildClient) SetProxy(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL != "" {
+		parsed, err := url.Parse(rawURL)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return fmt.Errorf("invalid gateway upstream proxy %q", rawURL)
+		}
+		switch strings.ToLower(parsed.Scheme) {
+		case "http", "https", "socks5", "socks5h":
+		default:
+			return fmt.Errorf("unsupported gateway upstream proxy scheme %q", parsed.Scheme)
+		}
 	}
+	c.proxyURL.Store(rawURL)
+	if transport, ok := c.HTTPClient.Transport.(*http.Transport); ok {
+		transport.CloseIdleConnections()
+	}
+	return nil
+}
+
+func (c *BuildClient) proxy(_ *http.Request) (*url.URL, error) {
+	rawURL, _ := c.proxyURL.Load().(string)
+	if rawURL == "" {
+		return nil, nil
+	}
+	return url.Parse(rawURL)
 }
 
 func (c *BuildClient) ForwardResponses(ctx context.Context, credential Credential, body []byte, model string) (*http.Response, Credential, error) {

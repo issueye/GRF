@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -34,7 +33,7 @@ func (m *Manager) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
 	var request struct {
 		Model               string          `json:"model"`
 		Messages            json.RawMessage `json:"messages"`
-		Stream              bool            `json:"stream"`
+		Stream              *bool           `json:"stream"`
 		Temperature         *float64        `json:"temperature,omitempty"`
 		MaxTokens           *int            `json:"max_tokens,omitempty"`
 		MaxCompletionTokens *int            `json:"max_completion_tokens,omitempty"`
@@ -43,12 +42,17 @@ func (m *Manager) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, http.StatusBadRequest, "invalid_request_error", "A valid model and messages are required")
 		return
 	}
+	r.Header.Set(requestModelHeader, strings.TrimSpace(request.Model))
 	input, err := normalizeMessageInput(request.Messages)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request_error", "messages format is invalid")
 		return
 	}
-	payload := map[string]any{"model": request.Model, "input": input, "stream": request.Stream}
+	stream := m.DefaultStream()
+	if request.Stream != nil {
+		stream = *request.Stream
+	}
+	payload := map[string]any{"model": request.Model, "input": input, "stream": stream}
 	if request.Temperature != nil {
 		payload["temperature"] = *request.Temperature
 	}
@@ -57,7 +61,7 @@ func (m *Manager) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
 	} else if request.MaxTokens != nil {
 		payload["max_output_tokens"] = *request.MaxTokens
 	}
-	m.proxyCompatibility(w, r, payload, request.Stream, false)
+	m.proxyCompatibility(w, r, payload, stream, false)
 }
 
 func (m *Manager) handleMessages(w http.ResponseWriter, r *http.Request) {
@@ -74,26 +78,31 @@ func (m *Manager) handleMessages(w http.ResponseWriter, r *http.Request) {
 		System      any             `json:"system"`
 		Messages    json.RawMessage `json:"messages"`
 		MaxTokens   int             `json:"max_tokens"`
-		Stream      bool            `json:"stream"`
+		Stream      *bool           `json:"stream"`
 		Temperature *float64        `json:"temperature,omitempty"`
 	}
 	if json.Unmarshal(body, &request) != nil || strings.TrimSpace(request.Model) == "" || len(request.Messages) == 0 || request.MaxTokens < 1 {
 		writeAnthropicError(w, http.StatusBadRequest, "invalid_request_error", "model, messages, and max_tokens are required")
 		return
 	}
+	r.Header.Set(requestModelHeader, strings.TrimSpace(request.Model))
 	input, err := normalizeMessageInput(request.Messages)
 	if err != nil {
 		writeAnthropicError(w, http.StatusBadRequest, "invalid_request_error", "messages format is invalid")
 		return
 	}
-	payload := map[string]any{"model": request.Model, "input": input, "max_output_tokens": request.MaxTokens, "stream": request.Stream}
+	stream := m.DefaultStream()
+	if request.Stream != nil {
+		stream = *request.Stream
+	}
+	payload := map[string]any{"model": request.Model, "input": input, "max_output_tokens": request.MaxTokens, "stream": stream}
 	if request.System != nil {
 		payload["instructions"] = request.System
 	}
 	if request.Temperature != nil {
 		payload["temperature"] = *request.Temperature
 	}
-	m.proxyCompatibility(w, r, payload, request.Stream, true)
+	m.proxyCompatibility(w, r, payload, stream, true)
 }
 
 func normalizeMessageInput(raw json.RawMessage) ([]map[string]any, error) {
@@ -152,8 +161,15 @@ func readCompatBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 func (m *Manager) proxyCompatibility(w http.ResponseWriter, r *http.Request, payload map[string]any, stream, anthropic bool) {
 	body, _ := json.Marshal(payload)
 	proxyRequest := r.Clone(r.Context())
+	proxyRequest.Header = r.Header
 	proxyRequest.Body = http.NoBody
 	proxyRequest.Body = ioNopCloser{bytes.NewReader(body)}
+	if stream {
+		streamWriter := newCompatibilityStreamWriter(w, payload["model"].(string), anthropic)
+		m.handleResponses(streamWriter, proxyRequest)
+		streamWriter.Finish()
+		return
+	}
 	recorder := httptest.NewRecorder()
 	m.handleResponses(recorder, proxyRequest)
 	result := recorder.Result()
@@ -167,17 +183,6 @@ func (m *Manager) proxyCompatibility(w http.ResponseWriter, r *http.Request, pay
 		}
 		w.WriteHeader(result.StatusCode)
 		_, _ = w.Write(responseBody)
-		return
-	}
-	if stream {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.WriteHeader(http.StatusOK)
-		if anthropic {
-			writeAnthropicStream(w, responseBody, payload["model"].(string))
-		} else {
-			writeChatStream(w, responseBody, payload["model"].(string))
-		}
 		return
 	}
 	var document responseDocument
@@ -209,51 +214,144 @@ func responseText(document responseDocument) string {
 	return text.String()
 }
 
-func responseDeltas(body []byte) []string {
-	var deltas []string
-	scanner := bufio.NewScanner(bytes.NewReader(body))
-	scanner.Buffer(make([]byte, 4096), 4<<20)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if data == "[DONE]" {
-			continue
-		}
-		var event struct{ Type, Delta string }
-		if json.Unmarshal([]byte(data), &event) == nil && event.Type == "response.output_text.delta" && event.Delta != "" {
-			deltas = append(deltas, event.Delta)
-		}
-	}
-	return deltas
+type compatibilityStreamWriter struct {
+	target    http.ResponseWriter
+	model     string
+	anthropic bool
+	status    int
+	buffer    string
+	started   bool
+	finished  bool
+	id        string
+	created   int64
 }
 
-func writeChatStream(w http.ResponseWriter, body []byte, model string) {
-	id := "chatcmpl-" + randomIdentifier()
-	created := time.Now().Unix()
-	for i, delta := range responseDeltas(body) {
-		role := map[string]any{"content": delta}
-		if i == 0 {
-			role["role"] = "assistant"
-		}
-		writeSSEData(w, map[string]any{"id": id, "object": "chat.completion.chunk", "created": created, "model": model, "choices": []any{map[string]any{"index": 0, "delta": role, "finish_reason": nil}}})
+func newCompatibilityStreamWriter(target http.ResponseWriter, model string, anthropic bool) *compatibilityStreamWriter {
+	prefix := "chatcmpl-"
+	if anthropic {
+		prefix = "msg_"
 	}
-	writeSSEData(w, map[string]any{"id": id, "object": "chat.completion.chunk", "created": created, "model": model, "choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}}})
-	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
+	return &compatibilityStreamWriter{target: target, model: model, anthropic: anthropic, id: prefix + randomIdentifier(), created: time.Now().Unix()}
 }
 
-func writeAnthropicStream(w http.ResponseWriter, body []byte, model string) {
-	id := "msg_" + randomIdentifier()
-	writeSSE(w, "message_start", map[string]any{"type": "message_start", "message": map[string]any{"id": id, "type": "message", "role": "assistant", "model": model, "content": []any{}, "stop_reason": nil, "usage": map[string]any{"input_tokens": 0, "output_tokens": 0}}})
-	writeSSE(w, "content_block_start", map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}})
-	for _, delta := range responseDeltas(body) {
-		writeSSE(w, "content_block_delta", map[string]any{"type": "content_block_delta", "index": 0, "delta": map[string]any{"type": "text_delta", "text": delta}})
+func (w *compatibilityStreamWriter) Header() http.Header { return w.target.Header() }
+
+func (w *compatibilityStreamWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
 	}
-	writeSSE(w, "content_block_stop", map[string]any{"type": "content_block_stop", "index": 0})
-	writeSSE(w, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": "end_turn", "stop_sequence": nil}, "usage": map[string]any{"output_tokens": 0}})
-	writeSSE(w, "message_stop", map[string]any{"type": "message_stop"})
+	w.status = status
+	if status >= 200 && status < 300 {
+		w.target.Header().Set("Content-Type", "text/event-stream")
+		w.target.Header().Set("Cache-Control", "no-cache")
+	}
+	w.target.WriteHeader(status)
+	if status >= 200 && status < 300 && w.anthropic {
+		w.startAnthropic()
+	}
+}
+
+func (w *compatibilityStreamWriter) Write(payload []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.status < 200 || w.status >= 300 {
+		return w.target.Write(payload)
+	}
+	w.buffer += string(payload)
+	for {
+		index := strings.IndexByte(w.buffer, '\n')
+		if index < 0 {
+			break
+		}
+		line := strings.TrimSpace(w.buffer[:index])
+		w.buffer = w.buffer[index+1:]
+		w.consume(line)
+	}
+	return len(payload), nil
+}
+
+func (w *compatibilityStreamWriter) Flush() {
+	if flusher, ok := w.target.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *compatibilityStreamWriter) Finish() {
+	if strings.TrimSpace(w.buffer) != "" {
+		w.consume(strings.TrimSpace(w.buffer))
+		w.buffer = ""
+	}
+	if w.status >= 200 && w.status < 300 {
+		w.finishStream()
+	}
+	w.Flush()
+}
+
+func (w *compatibilityStreamWriter) consume(line string) {
+	if !strings.HasPrefix(line, "data:") {
+		return
+	}
+	data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+	if data == "[DONE]" {
+		w.finishStream()
+		return
+	}
+	var event struct {
+		Type  string `json:"type"`
+		Delta string `json:"delta"`
+	}
+	if json.Unmarshal([]byte(data), &event) != nil {
+		return
+	}
+	if event.Type == "response.output_text.delta" && event.Delta != "" {
+		w.writeDelta(event.Delta)
+	}
+	if event.Type == "response.completed" || event.Type == "response.failed" {
+		w.finishStream()
+	}
+}
+
+func (w *compatibilityStreamWriter) writeDelta(delta string) {
+	if w.anthropic {
+		w.startAnthropic()
+		writeSSE(w.target, "content_block_delta", map[string]any{"type": "content_block_delta", "index": 0, "delta": map[string]any{"type": "text_delta", "text": delta}})
+	} else {
+		content := map[string]any{"content": delta}
+		if !w.started {
+			content["role"] = "assistant"
+			w.started = true
+		}
+		writeSSEData(w.target, map[string]any{"id": w.id, "object": "chat.completion.chunk", "created": w.created, "model": w.model, "choices": []any{map[string]any{"index": 0, "delta": content, "finish_reason": nil}}})
+	}
+	w.Flush()
+}
+
+func (w *compatibilityStreamWriter) startAnthropic() {
+	if w.started {
+		return
+	}
+	w.started = true
+	writeSSE(w.target, "message_start", map[string]any{"type": "message_start", "message": map[string]any{"id": w.id, "type": "message", "role": "assistant", "model": w.model, "content": []any{}, "stop_reason": nil, "usage": map[string]any{"input_tokens": 0, "output_tokens": 0}}})
+	writeSSE(w.target, "content_block_start", map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}})
+	w.Flush()
+}
+
+func (w *compatibilityStreamWriter) finishStream() {
+	if w.finished {
+		return
+	}
+	w.finished = true
+	if w.anthropic {
+		w.startAnthropic()
+		writeSSE(w.target, "content_block_stop", map[string]any{"type": "content_block_stop", "index": 0})
+		writeSSE(w.target, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": "end_turn", "stop_sequence": nil}, "usage": map[string]any{"output_tokens": 0}})
+		writeSSE(w.target, "message_stop", map[string]any{"type": "message_stop"})
+	} else {
+		writeSSEData(w.target, map[string]any{"id": w.id, "object": "chat.completion.chunk", "created": w.created, "model": w.model, "choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}}})
+		_, _ = fmt.Fprint(w.target, "data: [DONE]\n\n")
+	}
+	w.Flush()
 }
 
 func writeSSEData(w http.ResponseWriter, value any) {

@@ -26,14 +26,18 @@ func (s *Store) CreateAPIKey(ctx context.Context, name string) (APIKey, string, 
 	}
 	secret := apiKeyPrefix + base64.RawURLEncoding.EncodeToString(random)
 	hash := sha256.Sum256([]byte(secret))
+	encryptedSecret, err := s.cipher.encrypt(secret)
+	if err != nil {
+		return APIKey{}, "", fmt.Errorf("encrypt API key: %w", err)
+	}
 	prefix := secret
 	if len(prefix) > 12 {
 		prefix = prefix[:12]
 	}
 	now := time.Now().UTC()
 	result, err := s.db.ExecContext(ctx, `INSERT INTO gateway_api_keys
-		(name, prefix, secret_hash, enabled, created_at) VALUES (?, ?, ?, 1, ?)`,
-		name, prefix, hash[:], formatTime(now))
+		(name, prefix, secret_hash, secret_ciphertext, enabled, created_at) VALUES (?, ?, ?, ?, 1, ?)`,
+		name, prefix, hash[:], encryptedSecret, formatTime(now))
 	if err != nil {
 		return APIKey{}, "", fmt.Errorf("create API key: %w", err)
 	}
@@ -41,11 +45,12 @@ func (s *Store) CreateAPIKey(ctx context.Context, name string) (APIKey, string, 
 	if err != nil {
 		return APIKey{}, "", fmt.Errorf("read API key id: %w", err)
 	}
-	return APIKey{ID: id, Name: name, Prefix: prefix, Enabled: true, CreatedAt: now}, secret, nil
+	return APIKey{ID: id, Name: name, Prefix: prefix, Enabled: true, CreatedAt: now, HasSecret: true}, secret, nil
 }
 
 func (s *Store) ListAPIKeys(ctx context.Context) ([]APIKey, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, prefix, enabled, created_at, last_used_at
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, prefix, enabled, created_at, last_used_at,
+		CASE WHEN secret_ciphertext <> '' THEN 1 ELSE 0 END
 		FROM gateway_api_keys ORDER BY created_at DESC, id DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list API keys: %w", err)
@@ -54,17 +59,34 @@ func (s *Store) ListAPIKeys(ctx context.Context) ([]APIKey, error) {
 	keys := make([]APIKey, 0)
 	for rows.Next() {
 		var key APIKey
-		var enabled int
+		var enabled, hasSecret int
 		var createdAt, lastUsedAt string
-		if err := rows.Scan(&key.ID, &key.Name, &key.Prefix, &enabled, &createdAt, &lastUsedAt); err != nil {
+		if err := rows.Scan(&key.ID, &key.Name, &key.Prefix, &enabled, &createdAt, &lastUsedAt, &hasSecret); err != nil {
 			return nil, fmt.Errorf("scan API key: %w", err)
 		}
 		key.Enabled = enabled != 0
 		key.CreatedAt = parseTime(createdAt)
 		key.LastUsedAt = parseOptionalTime(lastUsedAt)
+		key.HasSecret = hasSecret != 0
 		keys = append(keys, key)
 	}
 	return keys, rows.Err()
+}
+
+func (s *Store) GetAPIKeySecret(ctx context.Context, id int64) (string, error) {
+	var encryptedSecret string
+	err := s.db.QueryRowContext(ctx, `SELECT secret_ciphertext FROM gateway_api_keys WHERE id = ?`, id).Scan(&encryptedSecret)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && encryptedSecret == "") {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("get API key secret: %w", err)
+	}
+	secret, err := s.cipher.decrypt(encryptedSecret)
+	if err != nil {
+		return "", fmt.Errorf("decrypt API key secret: %w", err)
+	}
+	return secret, nil
 }
 
 func (s *Store) VerifyAPIKey(ctx context.Context, secret string) (APIKey, error) {

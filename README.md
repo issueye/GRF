@@ -569,7 +569,7 @@ go build -o bin/grok ./cmd/grok
 
 ## License
 
-MIT（与上游 grok-free-register 思路一致；本仓库为 Go 重制版。）
+本项目使用 [Apache License 2.0](LICENSE) 授权。第三方组件保留其各自的授权与归属声明，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ---
 

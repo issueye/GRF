@@ -6,12 +6,15 @@ import { SettingsPage } from './components/SettingsPage.jsx';
 import { AccountsPage } from './components/AccountsPage.jsx';
 import { APIKeysPage } from './components/APIKeysPage.jsx';
 import { ModelsPage } from './components/ModelsPage.jsx';
+import { GatewayPage } from './components/GatewayPage.jsx';
+import { GatewayLogsPage } from './components/GatewayLogsPage.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { StatusBar } from './components/StatusBar.jsx';
 import { TopBar } from './components/TopBar.jsx';
 import {
-  bootstrap, createAPIKey, deleteAPIKey, deleteGatewayAccount, gatewayStatus,
-  getDashboard, getSettings, listAPIKeys, listGatewayAccounts, listGatewayModels,
+	bootstrap, clearGatewayRequestLogs, createAPIKey, deleteAPIKey, deleteGatewayAccount,
+	gatewayStatus, getAPIKeySecret,
+	getDashboard, getSettings, importGatewayAccounts, listAPIKeys, listGatewayAccounts, listGatewayModels, listGatewayRequestLogs,
   listRuns, openConfig, openPath, saveSettings, setAPIKeyEnabled,
   startRegistration, stopRegistration, tailLog, updateGatewayAccount,
 } from './lib/native.js';
@@ -30,6 +33,7 @@ export function App() {
   const [runs, setRuns] = useState([]);
   const [settings, setSettings] = useState(null);
   const [gateway, setGateway] = useState({ status: {}, accounts: [], models: [], keys: [] });
+	const [gatewayLogs, setGatewayLogs] = useState([]);
   const [createdSecret, setCreatedSecret] = useState('');
   const [target, setTarget] = useState(10);
   const [threads, setThreads] = useState(2);
@@ -72,6 +76,20 @@ export function App() {
     const timer = window.setInterval(() => refresh(true), dashboard.running ? 1200 : 3500);
     return () => window.clearInterval(timer);
   }, [dashboard.running, refresh]);
+
+	const refreshGatewayLogs = useCallback(async () => {
+		const logs = await listGatewayRequestLogs();
+		setGatewayLogs(logs || []);
+	}, []);
+
+	useEffect(() => {
+		if (view !== 'gateway-logs') return undefined;
+		let active = true;
+		const poll = () => listGatewayRequestLogs().then((logs) => { if (active) setGatewayLogs(logs || []); }).catch((err) => { if (active) setError(err?.message || String(err)); });
+		poll();
+		const timer = window.setInterval(poll, 1000);
+		return () => { active = false; window.clearInterval(timer); };
+	}, [view]);
 
   async function handleStart() {
     setBusy(true);
@@ -120,12 +138,47 @@ export function App() {
     finally { setBusy(false); }
   }
 
+  async function handleImportAccounts() {
+    setBusy(true);
+    try {
+      const result = await importGatewayAccounts();
+      if (!result.selected_files) return result;
+      await refreshGateway();
+      setNotice(result.failed_files ? `导入完成：${result.imported_accounts} 个账号，${result.failed_files} 个文件失败` : `已导入 ${result.imported_accounts} 个账号`);
+      setError('');
+      return result;
+    } catch (err) {
+      setError(err?.message || String(err));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleCreateKey(name) {
     setBusy(true);
     try { const result = await createAPIKey(name); setCreatedSecret(result.secret); await refreshGateway(); }
     catch (err) { setError(err?.message || String(err)); }
     finally { setBusy(false); }
   }
+
+  async function handleCopyKey(id) {
+		setBusy(true);
+		try {
+			const secret = await getAPIKeySecret(id);
+			if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+			await navigator.clipboard.writeText(secret);
+			setNotice('完整 API Key 已复制');
+		} catch (err) {
+			try { setCreatedSecret(await getAPIKeySecret(id)); }
+			catch { setError(err?.message || String(err)); }
+		} finally { setBusy(false); }
+	}
+
+	async function handleClearGatewayLogs() {
+		await gatewayAction(clearGatewayRequestLogs, '网关日志已清空');
+		setGatewayLogs([]);
+	}
 
   return (
     <div className="app-shell">
@@ -136,9 +189,11 @@ export function App() {
           {view === 'overview' ? <DashboardPage busy={busy} dashboard={dashboard} log={log} onOpenOutput={openPath} onStart={handleStart} onStop={() => setConfirmStop(true)} setTarget={setTarget} setThreads={setThreads} target={target} threads={threads} /> : null}
           {view === 'logs' ? <LogsPage busy={busy} log={log} onOpenPath={openPath} onRefresh={() => refresh()} path={dashboard.log_path} /> : null}
           {view === 'runs' ? <RunsPage onOpenPath={openPath} runs={runs} /> : null}
-          {view === 'accounts' ? <AccountsPage accounts={gateway.accounts} busy={busy} onDelete={(id) => gatewayAction(() => deleteGatewayAccount(id), '账号已删除')} onRefresh={refreshGateway} onUpdate={(account) => gatewayAction(() => updateGatewayAccount(account), '账号设置已保存')} /> : null}
+          {view === 'gateway' ? <GatewayPage busy={busy} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} status={gateway.status} /> : null}
+			{view === 'gateway-logs' ? <GatewayLogsPage busy={busy} logs={gatewayLogs} onClear={handleClearGatewayLogs} onRefresh={refreshGatewayLogs} /> : null}
+          {view === 'accounts' ? <AccountsPage accounts={gateway.accounts} busy={busy} onDelete={(id) => gatewayAction(() => deleteGatewayAccount(id), '账号已删除')} onImport={handleImportAccounts} onRefresh={refreshGateway} onUpdate={(account) => gatewayAction(() => updateGatewayAccount(account), '账号设置已保存')} /> : null}
           {view === 'models' ? <ModelsPage models={gateway.models} /> : null}
-          {view === 'keys' ? <APIKeysPage apiKeys={gateway.keys} busy={busy} onCreate={handleCreateKey} onDelete={(id) => gatewayAction(() => deleteAPIKey(id), 'API Key 已删除')} onToggle={(id, enabled) => gatewayAction(() => setAPIKeyEnabled(id, enabled), 'API Key 状态已更新')} /> : null}
+			{view === 'keys' ? <APIKeysPage apiKeys={gateway.keys} busy={busy} onCopy={handleCopyKey} onCreate={handleCreateKey} onDelete={(id) => gatewayAction(() => deleteAPIKey(id), 'API Key 已删除')} onToggle={(id, enabled) => gatewayAction(() => setAPIKeyEnabled(id, enabled), 'API Key 状态已更新')} /> : null}
           {view === 'settings' ? <SettingsPage busy={busy} configPath={info?.config_path || ''} onOpenConfig={openConfig} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} /> : null}
         </main>
       </div>

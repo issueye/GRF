@@ -273,6 +273,101 @@ export class Dashboard {
     }
 }
 
+export class GatewayAccountImportFailure {
+    /**
+     * Creates a new GatewayAccountImportFailure instance.
+     * @param {Partial<GatewayAccountImportFailure>} [$$source = {}] - The source object to create the GatewayAccountImportFailure.
+     */
+    constructor($$source = {}) {
+        if (!("file" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["file"] = "";
+        }
+        if (!("error" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountImportFailure instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {GatewayAccountImportFailure}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GatewayAccountImportFailure(/** @type {Partial<GatewayAccountImportFailure>} */($$parsedSource));
+    }
+}
+
+export class GatewayAccountImportResult {
+    /**
+     * Creates a new GatewayAccountImportResult instance.
+     * @param {Partial<GatewayAccountImportResult>} [$$source = {}] - The source object to create the GatewayAccountImportResult.
+     */
+    constructor($$source = {}) {
+        if (!("selected_files" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["selected_files"] = 0;
+        }
+        if (!("successful_files" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["successful_files"] = 0;
+        }
+        if (!("failed_files" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["failed_files"] = 0;
+        }
+        if (!("imported_accounts" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["imported_accounts"] = 0;
+        }
+        if (!("failures" in $$source)) {
+            /**
+             * @member
+             * @type {GatewayAccountImportFailure[]}
+             */
+            this["failures"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountImportResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {GatewayAccountImportResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failures" in $$parsedSource) {
+            $$parsedSource["failures"] = $$createField4_0($$parsedSource["failures"]);
+        }
+        return new GatewayAccountImportResult(/** @type {Partial<GatewayAccountImportResult>} */($$parsedSource));
+    }
+}
+
 export class GatewayAccountUpdate {
     /**
      * Creates a new GatewayAccountUpdate instance.
@@ -475,6 +570,13 @@ export class Settings {
              */
             this["api_listen_port"] = 0;
         }
+        if (!("api_stream_default" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["api_stream_default"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -577,3 +679,5 @@ export class StartResult {
 // Private type creation functions
 const $$createType0 = gateway$0.APIKey.createFrom;
 const $$createType1 = state$0.Workers.createFrom;
+const $$createType2 = GatewayAccountImportFailure.createFrom;
+const $$createType3 = $Create.Array($$createType2);
