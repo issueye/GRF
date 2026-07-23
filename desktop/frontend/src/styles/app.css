@@ -42,7 +42,7 @@ button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity:
 .app-shell { display: grid; grid-template-rows: 48px minmax(0, 1fr) 24px; width: 100%; height: 100%; background: var(--bg); }
 .topbar { --wails-draggable: drag; display: flex; align-items: center; min-width: 0; background: var(--surface); border-bottom: 1px solid var(--border); user-select: none; }
 .brand { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 14px; }
-.brand-mark { display: grid; place-items: center; width: 24px; height: 24px; color: white; background: var(--brand); border-radius: 7px; font-size: 12px; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+.brand-mark { display: block; width: 24px; height: 24px; border-radius: 6px; }
 .brand-mark.is-running { animation: brand-pulse 1.8s ease-in-out infinite; }
 .brand strong { font-size: 13px; letter-spacing: .04em; }
 .brand > span:last-child { color: var(--text-muted); font-size: 11px; padding-left: 8px; border-left: 1px solid var(--border); }

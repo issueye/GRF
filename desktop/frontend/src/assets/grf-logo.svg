@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">GRF logo</title>
+  <desc id="desc">A routed G-shaped workflow with three connected nodes.</desc>
+  <rect width="512" height="512" rx="112" fill="#1f2937"/>
+  <path d="M349 151c-28-27-66-43-108-43-84 0-152 66-152 148s68 148 152 148h116V267H244"
+        fill="none" stroke="#fff" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M357 267v137" fill="none" stroke="#c45119" stroke-width="54" stroke-linecap="round"/>
+  <circle cx="349" cy="151" r="25" fill="#c45119" stroke="#fff" stroke-width="12"/>
+  <circle cx="244" cy="267" r="25" fill="#c45119" stroke="#fff" stroke-width="12"/>
+  <circle cx="357" cy="404" r="25" fill="#c45119" stroke="#fff" stroke-width="12"/>
+</svg>

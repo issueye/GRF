@@ -1,11 +1,12 @@
 import { Minus, RefreshCw, Square, X } from 'lucide-react';
 import { windowActions } from '../lib/native.js';
+import logo from '../assets/grf-logo.svg';
 
 export function TopBar({ running, busy, onRefresh }) {
   return (
     <header className="topbar">
       <div className="brand" aria-label="GRF">
-        <span className={`brand-mark ${running ? 'is-running' : ''}`} aria-hidden="true">G</span>
+        <img className={`brand-mark ${running ? 'is-running' : ''}`} src={logo} alt="" />
         <strong>GRF</strong>
         <span>Registration Console</span>
       </div>

@@ -1,5 +1,7 @@
 # GRF
 
+![GRF Logo](desktop/frontend/src/assets/grf-lockup.svg)
+
 Grok 免费号 **注册 → OAuth → CPA 可用 JSON** 二合一 CLI（Go）。
 
 一条命令后台跑完，产物可直接导入 CPA / cliproxy 类网关。
