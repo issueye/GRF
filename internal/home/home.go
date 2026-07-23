@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	EnvHome        = "GRF_HOME"
+	EnvHome        = "GROK_HOME"
 	EnvHomeWindows = "GRF_HOME"
 	DirName        = ".grf"
 	DirNameWindows = ".grf"
@@ -17,15 +17,18 @@ const (
 
 // Paths holds all filesystem locations under the platform data root.
 type Paths struct {
-	Root      string
-	Config    string
-	PID       string
-	Lock      string
-	Stop      string
-	State     string
-	LogsDir   string
-	Outputs   string
-	Clearance string // optional: bundled compose path override
+	Root       string
+	Config     string
+	PID        string
+	Lock       string
+	Stop       string
+	State      string
+	LogsDir    string
+	Outputs    string
+	Clearance  string // optional: bundled compose path override
+	GatewayDir string
+	GatewayDB  string
+	GatewayKey string
 }
 
 func Resolve() (Paths, error) {
@@ -53,14 +56,17 @@ func Resolve() (Paths, error) {
 		return Paths{}, err
 	}
 	p := Paths{
-		Root:    root,
-		Config:  filepath.Join(root, "config.env"),
-		PID:     filepath.Join(root, "run.pid"),
-		Lock:    filepath.Join(root, "run.lock"),
-		Stop:    filepath.Join(root, "stop.request"),
-		State:   filepath.Join(root, "state.json"),
-		LogsDir: filepath.Join(root, "logs"),
-		Outputs: filepath.Join(root, "outputs"),
+		Root:       root,
+		Config:     filepath.Join(root, "config.env"),
+		PID:        filepath.Join(root, "run.pid"),
+		Lock:       filepath.Join(root, "run.lock"),
+		Stop:       filepath.Join(root, "stop.request"),
+		State:      filepath.Join(root, "state.json"),
+		LogsDir:    filepath.Join(root, "logs"),
+		Outputs:    filepath.Join(root, "outputs"),
+		GatewayDir: filepath.Join(root, "gateway"),
+		GatewayDB:  filepath.Join(root, "gateway", "gateway.db"),
+		GatewayKey: filepath.Join(root, "gateway", "credential.key"),
 	}
 	return p, nil
 }
@@ -74,7 +80,7 @@ func PreferredEnvHome() string {
 }
 
 func (p Paths) EnsureBase() error {
-	for _, d := range []string{p.Root, p.LogsDir, p.Outputs} {
+	for _, d := range []string{p.Root, p.LogsDir, p.Outputs, p.GatewayDir} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return err
 		}

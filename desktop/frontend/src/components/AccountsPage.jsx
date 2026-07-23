@@ -1,0 +1,23 @@
+import { RefreshCw, Save, Trash2, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+export function AccountsPage({ accounts, busy, onDelete, onRefresh, onUpdate }) {
+  return (
+    <section className="page" aria-labelledby="accounts-title">
+      <div className="page-heading"><div><h1 id="accounts-title">账号</h1><p>注册成功的 Grok Build OAuth 账号会自动进入此处。</p></div><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button></div>
+      {!accounts.length ? <div className="empty-state table-shell"><Users size={24} /><strong>暂无可用账号</strong><span>完成一次注册后，凭据将自动加密导入。</span></div> : (
+        <div className="gateway-table accounts-table">
+          <div className="gateway-table-head"><span>账号</span><span>状态</span><span>并发</span><span>操作</span></div>
+          {accounts.map((account) => <AccountRow account={account} key={account.id} onDelete={onDelete} onUpdate={onUpdate} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AccountRow({ account, onDelete, onUpdate }) {
+	const [draft, setDraft] = useState({ enabled: account.enabled, max_concurrent: account.max_concurrent });
+	useEffect(() => setDraft({ enabled: account.enabled, max_concurrent: account.max_concurrent }), [account.enabled, account.max_concurrent]);
+	const save = () => onUpdate({ id: account.id, name: account.name || '', ...draft });
+  return <div className="gateway-table-row"><div><strong>{account.name || account.email || `账号 ${account.id}`}</strong><small>{account.email || account.user_id || account.provider}</small></div><label className="compact-toggle"><input checked={draft.enabled} onChange={(e) => setDraft((value) => ({ ...value, enabled: e.target.checked }))} type="checkbox" /><span>{draft.enabled ? '已启用' : '已停用'}</span></label><input className="concurrency-input" max="64" min="1" onChange={(e) => setDraft((value) => ({ ...value, max_concurrent: Number(e.target.value) || 1 }))} type="number" value={draft.max_concurrent} /><div className="row-actions"><button className="icon-button bordered" onClick={save} title="保存账号" type="button"><Save size={14} /></button><button className="icon-button bordered danger-icon" onClick={() => onDelete(account.id)} title="删除账号" type="button"><Trash2 size={14} /></button></div></div>;
+}

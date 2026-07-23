@@ -34,6 +34,14 @@ export function SettingsPage({ settings, setSettings, configPath, busy, onSave, 
           <label><span>Management Base URL</span><input onChange={(e) => patch('cpa_management_base', e.target.value)} value={settings.cpa_management_base} /></label>
           <label className="switch-row"><span><strong>成功后自动上传</strong><small>本地文件始终会保留</small></span><input checked={settings.cpa_upload_enabled} onChange={(e) => patch('cpa_upload_enabled', e.target.checked)} type="checkbox" /></label>
         </section>
+        <section className="settings-section wide gateway-settings">
+          <div><h2>内嵌 API 网关</h2><p>提供 OpenAI / Anthropic 兼容接口。默认关闭，仅在手动开启后监听。</p></div>
+          <div className="gateway-setting-fields">
+            <label className="switch-row"><span><strong>启用 API 网关</strong><small>{settings.api_enabled ? `http://${settings.api_listen_host}:${settings.api_listen_port}` : '当前不监听任何端口'}</small></span><input checked={settings.api_enabled} onChange={(e) => patch('api_enabled', e.target.checked)} type="checkbox" /></label>
+            {settings.api_enabled && !['127.0.0.1', '::1', 'localhost'].includes(settings.api_listen_host) ? <div className="listen-warning">当前地址可能被局域网或公网访问，请确保 API Key 已妥善保管。</div> : null}
+            <div className="listen-fields"><label><span>监听地址</span><input onChange={(e) => patch('api_listen_host', e.target.value)} value={settings.api_listen_host} /></label><label><span>端口</span><input max="65535" min="1" onChange={(e) => patch('api_listen_port', Number(e.target.value))} type="number" value={settings.api_listen_port} /></label></div>
+          </div>
+        </section>
       </div>
     </section>
   );

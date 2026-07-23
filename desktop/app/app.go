@@ -1,7 +1,9 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,8 +16,10 @@ import (
 	"github.com/grok-free-register/grok-reg/internal/browser"
 	"github.com/grok-free-register/grok-reg/internal/config"
 	"github.com/grok-free-register/grok-reg/internal/daemon"
+	"github.com/grok-free-register/grok-reg/internal/gateway"
 	"github.com/grok-free-register/grok-reg/internal/home"
 	"github.com/grok-free-register/grok-reg/internal/state"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type BootstrapInfo struct {
@@ -80,14 +84,74 @@ type Settings struct {
 	LiteSolverURL     string `json:"lite_solver_url"`
 	CPAUploadEnabled  bool   `json:"cpa_upload_enabled"`
 	CPAManagementBase string `json:"cpa_management_base"`
+	APIEnabled        bool   `json:"api_enabled"`
+	APIListenHost     string `json:"api_listen_host"`
+	APIListenPort     int    `json:"api_listen_port"`
+}
+
+type GatewayAccountUpdate struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Enabled       bool   `json:"enabled"`
+	MaxConcurrent int    `json:"max_concurrent"`
+}
+
+type CreatedAPIKey struct {
+	Key    gateway.APIKey `json:"key"`
+	Secret string         `json:"secret"`
 }
 
 type App struct {
-	version string
-	mu      sync.Mutex
+	version        string
+	mu             sync.Mutex
+	gatewayStore   *gateway.Store
+	gatewayManager *gateway.Manager
+	gatewayErr     error
 }
 
 func New(version string) *App { return &App{version: version} }
+
+func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	if a.gatewayErr != nil {
+		return nil
+	}
+	p, err := resolvePaths()
+	if err != nil {
+		a.gatewayErr = err
+		return nil
+	}
+	cfg, err := config.Load(p.Config)
+	if err != nil {
+		a.gatewayErr = err
+		return nil
+	}
+	if cfg.APIEnabled {
+		a.gatewayErr = a.gatewayManager.Start(net.JoinHostPort(cfg.APIListenHost, fmt.Sprint(cfg.APIListenPort)))
+	}
+	return nil
+}
+
+func (a *App) ServiceShutdown() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var stopErr error
+	if a.gatewayManager != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		stopErr = a.gatewayManager.Stop(ctx)
+		cancel()
+	}
+	if a.gatewayStore != nil {
+		if err := a.gatewayStore.Close(); stopErr == nil {
+			stopErr = err
+		}
+		a.gatewayStore = nil
+		a.gatewayManager = nil
+	}
+	return stopErr
+}
 
 func (a *App) Bootstrap() (BootstrapInfo, error) {
 	p, err := resolvePaths()
@@ -271,7 +335,8 @@ func (a *App) GetSettings() (Settings, error) {
 		RegisterProxy: cfg.RegisterProxy, ClearanceEnabled: cfg.ClearanceEnabled,
 		FlareSolverrURL: cfg.FlareSolverrURL, TurnstileProvider: cfg.TurnstileProvider,
 		LiteSolverURL: cfg.LiteSolverURL, CPAUploadEnabled: cfg.CPAUploadEnabled,
-		CPAManagementBase: cfg.CPAManagementBase,
+		CPAManagementBase: cfg.CPAManagementBase, APIEnabled: cfg.APIEnabled,
+		APIListenHost: cfg.APIListenHost, APIListenPort: cfg.APIListenPort,
 	}, nil
 }
 
@@ -288,6 +353,13 @@ func (a *App) SaveSettings(settings Settings) error {
 		provider = "browser"
 	}
 	proxy := strings.TrimSpace(settings.RegisterProxy)
+	host := strings.TrimSpace(settings.APIListenHost)
+	if net.ParseIP(host) == nil && !strings.EqualFold(host, "localhost") {
+		return fmt.Errorf("API 监听主机必须是 IP 地址或 localhost")
+	}
+	if settings.APIListenPort < 1 || settings.APIListenPort > 65535 {
+		return fmt.Errorf("API 监听端口必须在 1 到 65535 之间")
+	}
 	updates := map[string]string{
 		"EMAIL_MODE":          stringOr(settings.EmailMode, "tempmail"),
 		"EMAIL_DOMAIN":        strings.TrimSpace(settings.EmailDomain),
@@ -301,8 +373,148 @@ func (a *App) SaveSettings(settings Settings) error {
 		"LITE_SOLVER_URL":     strings.TrimSpace(settings.LiteSolverURL),
 		"CPA_UPLOAD_ENABLED":  bool01(settings.CPAUploadEnabled),
 		"CPA_MANAGEMENT_BASE": strings.TrimSpace(settings.CPAManagementBase),
+		"API_ENABLED":         bool01(settings.APIEnabled),
+		"API_LISTEN_HOST":     host,
+		"API_LISTEN_PORT":     fmt.Sprint(settings.APIListenPort),
 	}
-	return patchEnvFile(p.Config, updates)
+	if err := patchEnvFile(p.Config, updates); err != nil {
+		return err
+	}
+	return a.applyGatewaySettings(settings.APIEnabled, net.JoinHostPort(host, fmt.Sprint(settings.APIListenPort)))
+}
+
+func (a *App) GatewayStatus() gateway.Status {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	if a.gatewayErr != nil {
+		return gateway.Status{Error: a.gatewayErr.Error()}
+	}
+	return a.gatewayManager.Status()
+}
+
+func (a *App) StartGateway() error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	settings.APIEnabled = true
+	return a.SaveSettings(settings)
+}
+
+func (a *App) StopGateway() error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	settings.APIEnabled = false
+	return a.SaveSettings(settings)
+}
+
+func (a *App) ListGatewayAccounts() ([]gateway.Account, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return nil, err
+	}
+	return store.ListAccounts(context.Background())
+}
+
+func (a *App) UpdateGatewayAccount(update GatewayAccountUpdate) error {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return err
+	}
+	return store.UpdateAccount(context.Background(), update.ID, update.Name, update.Enabled, update.MaxConcurrent)
+}
+
+func (a *App) DeleteGatewayAccount(id int64) error {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return err
+	}
+	return store.DeleteAccount(context.Background(), id)
+}
+
+func (a *App) ListGatewayModels() []gateway.Model { return gateway.ListModels() }
+
+func (a *App) ListAPIKeys() ([]gateway.APIKey, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return nil, err
+	}
+	return store.ListAPIKeys(context.Background())
+}
+
+func (a *App) CreateAPIKey(name string) (CreatedAPIKey, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return CreatedAPIKey{}, err
+	}
+	key, secret, err := store.CreateAPIKey(context.Background(), name)
+	return CreatedAPIKey{Key: key, Secret: secret}, err
+}
+
+func (a *App) SetAPIKeyEnabled(id int64, enabled bool) error {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return err
+	}
+	return store.SetAPIKeyEnabled(context.Background(), id, enabled)
+}
+
+func (a *App) DeleteAPIKey(id int64) error {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return err
+	}
+	return store.DeleteAPIKey(context.Background(), id)
+}
+
+func (a *App) applyGatewaySettings(enabled bool, address string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	if a.gatewayErr != nil {
+		return a.gatewayErr
+	}
+	status := a.gatewayManager.Status()
+	if status.Running && (!enabled || status.Address != address) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := a.gatewayManager.Stop(ctx)
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+	if enabled && !a.gatewayManager.Status().Running {
+		return a.gatewayManager.Start(address)
+	}
+	return nil
+}
+
+func (a *App) gatewayStoreReady() (*gateway.Store, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.openGatewayLocked()
+	return a.gatewayStore, a.gatewayErr
+}
+
+func (a *App) openGatewayLocked() {
+	if a.gatewayStore != nil || a.gatewayErr != nil {
+		return
+	}
+	p, err := resolvePaths()
+	if err != nil {
+		a.gatewayErr = err
+		return
+	}
+	store, err := gateway.OpenStore(context.Background(), p.GatewayDB, p.GatewayKey)
+	if err != nil {
+		a.gatewayErr = err
+		return
+	}
+	a.gatewayStore = store
+	a.gatewayManager = gateway.NewManager(store)
 }
 
 func (a *App) OpenConfig() error {

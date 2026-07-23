@@ -7,6 +7,7 @@ import (
 
 	"github.com/grok-free-register/grok-reg/internal/config"
 	"github.com/grok-free-register/grok-reg/internal/daemon"
+	"github.com/grok-free-register/grok-reg/internal/gateway"
 	"github.com/grok-free-register/grok-reg/internal/home"
 	"github.com/grok-free-register/grok-reg/internal/logx"
 	"github.com/grok-free-register/grok-reg/internal/pipeline"
@@ -60,6 +61,14 @@ func RunWorker(args []string) error {
 	}
 	cfg.Target = target
 	cfg.TurnstileWorkers = threads
+	var gatewaySink *gateway.Sink
+	if sink, sinkErr := gateway.OpenSink(context.Background(), p.GatewayDB, p.GatewayKey); sinkErr != nil {
+		// Registration remains usable if the optional gateway database is unavailable.
+		// The CPA file remains the source of truth and can be imported later.
+	} else {
+		gatewaySink = sink
+		defer gatewaySink.Close()
+	}
 
 	run, err := p.PrepareRun(runID)
 	if err != nil {
@@ -83,7 +92,7 @@ func RunWorker(args []string) error {
 	})
 
 	err = pipeline.Run(context.Background(), pipeline.Options{
-		Cfg: cfg, Paths: p, Run: run, Target: target, Log: log, Store: st,
+		Cfg: cfg, Paths: p, Run: run, Target: target, Log: log, Store: st, GatewaySink: gatewaySink,
 	})
 	if err != nil {
 		_ = st.Set(func(s *state.Snapshot) {

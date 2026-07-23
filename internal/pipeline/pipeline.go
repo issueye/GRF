@@ -40,12 +40,19 @@ type SSOJob struct {
 }
 
 type Options struct {
-	Cfg    config.Config
-	Paths  home.Paths
-	Run    home.RunDirs
-	Target int
-	Log    *logx.Logger
-	Store  *state.Store
+	Cfg         config.Config
+	Paths       home.Paths
+	Run         home.RunDirs
+	Target      int
+	Log         *logx.Logger
+	Store       *state.Store
+	GatewaySink AccountSink
+}
+
+// AccountSink receives a successfully probed Build credential without coupling
+// the registration pipeline to a particular gateway storage implementation.
+type AccountSink interface {
+	Import(context.Context, cpa.Document) error
 }
 
 type Engine struct {
@@ -704,6 +711,11 @@ func (e *Engine) oauthWorker(ctx context.Context, id int) {
 				defer func() { _ = recover() }()
 				_ = up.UploadDocument(docCopy)
 			}()
+		}
+		if e.opt.GatewaySink != nil {
+			if err := e.opt.GatewaySink.Import(ctx, doc); err != nil {
+				log.Warnf("网关账号导入失败 %s: %v", job.Email, err)
+			}
 		}
 		log.OKf("CPA 就绪 #%d/%d %s -> %s", d, e.opt.Target, job.Email, filepath.Base(path))
 		e.refreshState()

@@ -68,6 +68,10 @@ type Config struct {
 	CPAUploadNameTemplate string
 	CPAUploadVerify       bool
 	CPAUploadMode         string // multipart | json
+
+	APIEnabled    bool
+	APIListenHost string
+	APIListenPort int
 }
 
 func Defaults() Config {
@@ -102,6 +106,9 @@ func Defaults() Config {
 		CPAUploadNameTemplate: "{email}.json",
 		CPAUploadVerify:       true,
 		CPAUploadMode:         "multipart",
+		APIEnabled:            false,
+		APIListenHost:         "127.0.0.1",
+		APIListenPort:         8000,
 	}
 }
 
@@ -158,6 +165,9 @@ func Save(path string, cfg Config) error {
 	b.WriteString(fmt.Sprintf("CPA_UPLOAD_TIMEOUT_SEC=%d\n", cfg.CPAUploadTimeoutSec))
 	b.WriteString(fmt.Sprintf("CPA_UPLOAD_RETRIES=%d\n", cfg.CPAUploadRetries))
 	b.WriteString(fmt.Sprintf("CPA_UPLOAD_NAME_TEMPLATE=%s\n", cfg.CPAUploadNameTemplate))
+	b.WriteString(fmt.Sprintf("API_ENABLED=%s\n", bool01(cfg.APIEnabled)))
+	b.WriteString(fmt.Sprintf("API_LISTEN_HOST=%s\n", cfg.APIListenHost))
+	b.WriteString(fmt.Sprintf("API_LISTEN_PORT=%d\n", cfg.APIListenPort))
 	return os.WriteFile(path, []byte(b.String()), 0o600)
 }
 
@@ -379,6 +389,17 @@ func applyMap(cfg *Config, env map[string]string) {
 	}
 	if v, ok := env["CPA_UPLOAD_MODE"]; ok {
 		cfg.CPAUploadMode = v
+	}
+	if v, ok := env["API_ENABLED"]; ok {
+		cfg.APIEnabled = truthy(v)
+	}
+	if v, ok := env["API_LISTEN_HOST"]; ok {
+		cfg.APIListenHost = v
+	}
+	if v, ok := env["API_LISTEN_PORT"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.APIListenPort = n
+		}
 	}
 }
 

@@ -9,7 +9,9 @@ export {
 
 export {
     BootstrapInfo,
+    CreatedAPIKey,
     Dashboard,
+    GatewayAccountUpdate,
     RunEntry,
     Settings,
     StartRequest,

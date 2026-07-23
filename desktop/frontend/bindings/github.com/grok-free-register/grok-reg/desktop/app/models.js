@@ -8,6 +8,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as gateway$0 from "../../internal/gateway/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as state$0 from "../../internal/state/models.js";
 
 export class BootstrapInfo {
@@ -77,6 +80,45 @@ export class BootstrapInfo {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new BootstrapInfo(/** @type {Partial<BootstrapInfo>} */($$parsedSource));
+    }
+}
+
+export class CreatedAPIKey {
+    /**
+     * Creates a new CreatedAPIKey instance.
+     * @param {Partial<CreatedAPIKey>} [$$source = {}] - The source object to create the CreatedAPIKey.
+     */
+    constructor($$source = {}) {
+        if (!("key" in $$source)) {
+            /**
+             * @member
+             * @type {gateway$0.APIKey}
+             */
+            this["key"] = (new gateway$0.APIKey());
+        }
+        if (!("secret" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["secret"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CreatedAPIKey instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CreatedAPIKey}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("key" in $$parsedSource) {
+            $$parsedSource["key"] = $$createField0_0($$parsedSource["key"]);
+        }
+        return new CreatedAPIKey(/** @type {Partial<CreatedAPIKey>} */($$parsedSource));
     }
 }
 
@@ -222,12 +264,61 @@ export class Dashboard {
      * @returns {Dashboard}
      */
     static createFrom($$source = {}) {
-        const $$createField10_0 = $$createType0;
+        const $$createField10_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("workers" in $$parsedSource) {
             $$parsedSource["workers"] = $$createField10_0($$parsedSource["workers"]);
         }
         return new Dashboard(/** @type {Partial<Dashboard>} */($$parsedSource));
+    }
+}
+
+export class GatewayAccountUpdate {
+    /**
+     * Creates a new GatewayAccountUpdate instance.
+     * @param {Partial<GatewayAccountUpdate>} [$$source = {}] - The source object to create the GatewayAccountUpdate.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["enabled"] = false;
+        }
+        if (!("max_concurrent" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["max_concurrent"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountUpdate instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {GatewayAccountUpdate}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GatewayAccountUpdate(/** @type {Partial<GatewayAccountUpdate>} */($$parsedSource));
     }
 }
 
@@ -363,6 +454,27 @@ export class Settings {
              */
             this["cpa_management_base"] = "";
         }
+        if (!("api_enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["api_enabled"] = false;
+        }
+        if (!("api_listen_host" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["api_listen_host"] = "";
+        }
+        if (!("api_listen_port" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["api_listen_port"] = 0;
+        }
 
         Object.assign(this, $$source);
     }
@@ -463,4 +575,5 @@ export class StartResult {
 }
 
 // Private type creation functions
-const $$createType0 = state$0.Workers.createFrom;
+const $$createType0 = gateway$0.APIKey.createFrom;
+const $$createType1 = state$0.Workers.createFrom;

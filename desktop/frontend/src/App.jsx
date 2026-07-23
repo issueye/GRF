@@ -3,12 +3,17 @@ import { DashboardPage } from './components/DashboardPage.jsx';
 import { LogsPage } from './components/LogsPage.jsx';
 import { RunsPage } from './components/RunsPage.jsx';
 import { SettingsPage } from './components/SettingsPage.jsx';
+import { AccountsPage } from './components/AccountsPage.jsx';
+import { APIKeysPage } from './components/APIKeysPage.jsx';
+import { ModelsPage } from './components/ModelsPage.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { StatusBar } from './components/StatusBar.jsx';
 import { TopBar } from './components/TopBar.jsx';
 import {
-  bootstrap, getDashboard, getSettings, listRuns, openConfig, openPath,
-  saveSettings, startRegistration, stopRegistration, tailLog,
+  bootstrap, createAPIKey, deleteAPIKey, deleteGatewayAccount, gatewayStatus,
+  getDashboard, getSettings, listAPIKeys, listGatewayAccounts, listGatewayModels,
+  listRuns, openConfig, openPath, saveSettings, setAPIKeyEnabled,
+  startRegistration, stopRegistration, tailLog, updateGatewayAccount,
 } from './lib/native.js';
 
 const emptyDashboard = {
@@ -24,6 +29,8 @@ export function App() {
   const [log, setLog] = useState('');
   const [runs, setRuns] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [gateway, setGateway] = useState({ status: {}, accounts: [], models: [], keys: [] });
+  const [createdSecret, setCreatedSecret] = useState('');
   const [target, setTarget] = useState(10);
   const [threads, setThreads] = useState(2);
   const [busy, setBusy] = useState(false);
@@ -46,15 +53,20 @@ export function App() {
     }
   }, []);
 
+  const refreshGateway = useCallback(async () => {
+    const [status, accounts, models, keys] = await Promise.all([gatewayStatus(), listGatewayAccounts(), listGatewayModels(), listAPIKeys()]);
+    setGateway({ status, accounts: accounts || [], models: models || [], keys: keys || [] });
+  }, []);
+
   useEffect(() => {
-    Promise.all([bootstrap(), getSettings()])
+    Promise.all([bootstrap(), getSettings(), refreshGateway()])
       .then(([nextInfo, nextSettings]) => {
         setInfo(nextInfo);
         setSettings(nextSettings);
       })
       .catch((err) => setError(err?.message || String(err)));
     refresh();
-  }, [refresh]);
+  }, [refresh, refreshGateway]);
 
   useEffect(() => {
     const timer = window.setInterval(() => refresh(true), dashboard.running ? 1200 : 3500);
@@ -92,12 +104,27 @@ export function App() {
     setBusy(true);
     try {
       await saveSettings(settings);
+      await refreshGateway();
       setNotice('配置已经保存');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function gatewayAction(action, success) {
+    setBusy(true);
+    try { await action(); await refreshGateway(); setNotice(success); setError(''); }
+    catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
+  }
+
+  async function handleCreateKey(name) {
+    setBusy(true);
+    try { const result = await createAPIKey(name); setCreatedSecret(result.secret); await refreshGateway(); }
+    catch (err) { setError(err?.message || String(err)); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -109,6 +136,9 @@ export function App() {
           {view === 'overview' ? <DashboardPage busy={busy} dashboard={dashboard} log={log} onOpenOutput={openPath} onStart={handleStart} onStop={() => setConfirmStop(true)} setTarget={setTarget} setThreads={setThreads} target={target} threads={threads} /> : null}
           {view === 'logs' ? <LogsPage busy={busy} log={log} onOpenPath={openPath} onRefresh={() => refresh()} path={dashboard.log_path} /> : null}
           {view === 'runs' ? <RunsPage onOpenPath={openPath} runs={runs} /> : null}
+          {view === 'accounts' ? <AccountsPage accounts={gateway.accounts} busy={busy} onDelete={(id) => gatewayAction(() => deleteGatewayAccount(id), '账号已删除')} onRefresh={refreshGateway} onUpdate={(account) => gatewayAction(() => updateGatewayAccount(account), '账号设置已保存')} /> : null}
+          {view === 'models' ? <ModelsPage models={gateway.models} /> : null}
+          {view === 'keys' ? <APIKeysPage apiKeys={gateway.keys} busy={busy} onCreate={handleCreateKey} onDelete={(id) => gatewayAction(() => deleteAPIKey(id), 'API Key 已删除')} onToggle={(id, enabled) => gatewayAction(() => setAPIKeyEnabled(id, enabled), 'API Key 状态已更新')} /> : null}
           {view === 'settings' ? <SettingsPage busy={busy} configPath={info?.config_path || ''} onOpenConfig={openConfig} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} /> : null}
         </main>
       </div>
@@ -124,6 +154,7 @@ export function App() {
           </div>
         </div>
       ) : null}
+      {createdSecret ? <div className="dialog-backdrop"><div aria-modal="true" className="dialog secret-dialog" role="dialog"><span className="dialog-key">API KEY</span><h2>密钥已创建</h2><p>完整密钥只显示这一次。关闭后无法再次查看。</p><code>{createdSecret}</code><div><button className="button button-secondary" onClick={() => navigator.clipboard?.writeText(createdSecret)} type="button">复制</button><button className="button button-primary" onClick={() => setCreatedSecret('')} type="button">完成</button></div></div></div> : null}
     </div>
   );
 }

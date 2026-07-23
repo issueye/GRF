@@ -27,6 +27,16 @@ const demoSettings = {
   lite_solver_url: 'http://127.0.0.1:5072',
   cpa_upload_enabled: false,
   cpa_management_base: 'http://localhost:8317/v0/management',
+  api_enabled: false,
+  api_listen_host: '127.0.0.1',
+  api_listen_port: 8000,
+};
+
+const demoGateway = {
+  status: { running: false, address: '' },
+  accounts: [],
+  models: [{ id: 'grok-4.5', object: 'model', owned_by: 'xai' }],
+  keys: [],
 };
 
 function hasNativeRuntime() {
@@ -114,6 +124,52 @@ export async function saveSettings(settings) {
     return;
   }
   return invoke('SaveSettings', settings);
+}
+
+export async function gatewayStatus() {
+  return hasNativeRuntime() ? invoke('GatewayStatus') : demoGateway.status;
+}
+
+export async function listGatewayAccounts() {
+  return hasNativeRuntime() ? invoke('ListGatewayAccounts') : demoGateway.accounts;
+}
+
+export async function updateGatewayAccount(account) {
+  if (hasNativeRuntime()) return invoke('UpdateGatewayAccount', account);
+  const index = demoGateway.accounts.findIndex((item) => item.id === account.id);
+  if (index >= 0) demoGateway.accounts[index] = { ...demoGateway.accounts[index], ...account };
+}
+
+export async function deleteGatewayAccount(id) {
+  if (hasNativeRuntime()) return invoke('DeleteGatewayAccount', id);
+  demoGateway.accounts = demoGateway.accounts.filter((item) => item.id !== id);
+}
+
+export async function listGatewayModels() {
+  return hasNativeRuntime() ? invoke('ListGatewayModels') : demoGateway.models;
+}
+
+export async function listAPIKeys() {
+  return hasNativeRuntime() ? invoke('ListAPIKeys') : demoGateway.keys;
+}
+
+export async function createAPIKey(name) {
+  if (hasNativeRuntime()) return invoke('CreateAPIKey', name);
+  const secret = `grf_preview_${Date.now()}`;
+  const key = { id: Date.now(), name, prefix: secret.slice(0, 12), enabled: true, created_at: new Date().toISOString() };
+  demoGateway.keys.unshift(key);
+  return { key, secret };
+}
+
+export async function setAPIKeyEnabled(id, enabled) {
+  if (hasNativeRuntime()) return invoke('SetAPIKeyEnabled', id, enabled);
+  const key = demoGateway.keys.find((item) => item.id === id);
+  if (key) key.enabled = enabled;
+}
+
+export async function deleteAPIKey(id) {
+  if (hasNativeRuntime()) return invoke('DeleteAPIKey', id);
+  demoGateway.keys = demoGateway.keys.filter((item) => item.id !== id);
 }
 
 export async function openConfig() {

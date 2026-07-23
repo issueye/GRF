@@ -1,9 +1,12 @@
-import { Activity, Boxes, LayoutDashboard, Settings2 } from 'lucide-react';
+import { Activity, Box, Boxes, KeyRound, LayoutDashboard, Settings2, Users } from 'lucide-react';
 
 const items = [
   { id: 'overview', label: '总览', icon: LayoutDashboard },
   { id: 'logs', label: '实时日志', icon: Activity },
   { id: 'runs', label: '产物', icon: Boxes },
+  { id: 'accounts', label: '账号', icon: Users },
+  { id: 'models', label: '模型', icon: Box },
+  { id: 'keys', label: 'API Keys', icon: KeyRound },
   { id: 'settings', label: '设置', icon: Settings2 },
 ];
 
