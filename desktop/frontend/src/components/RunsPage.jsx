@@ -3,7 +3,7 @@ import { ExternalLink, FolderOpen } from 'lucide-react';
 export function RunsPage({ runs, onOpenPath }) {
   return (
     <section className="page runs-page" aria-labelledby="runs-title">
-      <div className="page-heading"><div><span className="eyebrow">ARTIFACTS</span><h1 id="runs-title">运行产物</h1><p>按运行批次查看 SSO 与 CPA 文件，文件始终保存在本地。</p></div></div>
+      <div className="page-heading"><h1 id="runs-title">运行产物</h1></div>
       <div className="table-shell">
         <div className="table-header"><span>运行批次</span><span>CPA</span><span>SSO</span><span>更新时间</span><span aria-hidden="true" /></div>
         {runs.length === 0 ? (

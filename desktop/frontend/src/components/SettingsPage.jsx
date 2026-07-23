@@ -8,7 +8,7 @@ export function SettingsPage({ settings, setSettings, configPath, busy, onSave, 
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
       <div className="page-heading">
-        <div><span className="eyebrow">CONFIGURATION</span><h1 id="settings-title">运行设置</h1><p>常用选项可直接修改；密钥等敏感字段请在配置文件中维护。</p></div>
+        <h1 id="settings-title">运行设置</h1>
         <div className="heading-actions">
           <button className="button button-secondary" onClick={onOpenConfig} type="button"><FileText size={14} /> 打开配置文件</button>
           <button className="button button-primary" disabled={busy} onClick={onSave} type="button"><Save size={14} /> 保存设置</button>

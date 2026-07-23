@@ -39,9 +39,7 @@ export function DashboardPage({ dashboard, target, threads, setTarget, setThread
     <section className="page dashboard-page" aria-labelledby="overview-title">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">CONTROL CENTER</span>
           <h1 id="overview-title">注册控制台</h1>
-          <p>配置本次目标并观察从验证到 CPA 产出的完整流水线。</p>
         </div>
         {dashboard.output_dir ? (
           <button className="button button-secondary" onClick={() => onOpenOutput(dashboard.output_dir)} type="button">

@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.2.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "0.2.0",
+			"CompanyName": "red_panda",
+			"FileDescription": "red_panda - Local AI Agent desktop shell",
+			"LegalCopyright": "© 2026 red_panda",
+			"ProductName": "red_panda",
+			"Comments": "Local AI agent desktop for multi-session workspace runs"
+		}
+	}
+}

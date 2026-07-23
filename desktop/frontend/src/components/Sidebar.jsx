@@ -1,10 +1,10 @@
 import { Activity, Boxes, LayoutDashboard, Settings2 } from 'lucide-react';
 
 const items = [
-  { id: 'overview', label: '总览', description: '任务与进度', icon: LayoutDashboard },
-  { id: 'logs', label: '实时日志', description: '运行事件流', icon: Activity },
-  { id: 'runs', label: '产物', description: '历史运行结果', icon: Boxes },
-  { id: 'settings', label: '设置', description: '运行环境配置', icon: Settings2 },
+  { id: 'overview', label: '总览', icon: LayoutDashboard },
+  { id: 'logs', label: '实时日志', icon: Activity },
+  { id: 'runs', label: '产物', icon: Boxes },
+  { id: 'settings', label: '设置', icon: Settings2 },
 ];
 
 export function Sidebar({ active, onChange, bootstrapInfo }) {
