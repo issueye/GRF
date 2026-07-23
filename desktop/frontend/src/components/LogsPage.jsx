@@ -15,7 +15,7 @@ export function LogsPage({ log, path, busy, onRefresh, onOpenPath }) {
         </div>
       </div>
       <div className="terminal-shell">
-        <div className="terminal-header"><span><i /> gtr worker</span><small>{path || '尚未生成日志文件'}</small></div>
+        <div className="terminal-header"><span><i /> grf worker</span><small>{path || '尚未生成日志文件'}</small></div>
         <pre aria-live="polite">{log || '等待日志输出…'}</pre>
       </div>
     </section>

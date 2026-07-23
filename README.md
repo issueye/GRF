@@ -318,7 +318,7 @@ TURNSTILE_PROVIDER=go-browser
 # CHROME_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
 ```
 
-不显式设置时，Windows 的默认 `browser` 也会自动选择 Go BrowserPool。运行数据位于 `%USERPROFILE%\.gtr`，可通过 `GTR_HOME` 修改；已设置的 `GROK_HOME` 仍作为兼容回退。
+不显式设置时，Windows 的默认 `browser` 也会自动选择 Go BrowserPool。运行数据位于 `%USERPROFILE%\.grf`，可通过 `GRF_HOME` 修改；已设置的 `GROK_HOME` 仍作为兼容回退。
 
 可选安装到用户目录：
 
@@ -326,10 +326,10 @@ TURNSTILE_PROVIDER=go-browser
 $installDir = Join-Path $env:LOCALAPPDATA "GrokRegister\bin"
 New-Item -ItemType Directory -Force $installDir | Out-Null
 Copy-Item .\bin\grf.exe $installDir -Force
-& (Join-Path $installDir "gtr.exe") help
+& (Join-Path $installDir "grf.exe") help
 ```
 
-`gtr start/status/stop/logs/config` 均支持原生 Windows。后台 worker 使用 Windows 进程组和隐藏窗口启动；`gtr stop` 通过 `%USERPROFILE%\.gtr\stop.request` 请求优雅退出，超时后才强制结束进程。
+`grf start/status/stop/logs/config` 均支持原生 Windows。后台 worker 使用 Windows 进程组和隐藏窗口启动；`grf stop` 通过 `%USERPROFILE%\.grf\stop.request` 请求优雅退出，超时后才强制结束进程。
 
 #### Wails v3 桌面端
 
@@ -356,7 +356,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 脚本会执行 Go 测试、生成 Wails 绑定、安装并构建 React 前端，最后生成无控制台窗口的 `bin\grf-desktop.exe`。开发时可使用 `-SkipTests` 和 `-SkipInstall` 缩短构建时间。
 
-`build-windows.ps1` 构建命令行版 `bin\grf.exe`，`build-desktop-windows.ps1` 构建桌面版 `bin\grf-desktop.exe`，两者不会再互相覆盖。两个版本共享 `%USERPROFILE%\.gtr\config.env`、日志和产物目录，`GTR_HOME` 可覆盖数据根目录。
+`build-windows.ps1` 构建命令行版 `bin\grf.exe`，`build-desktop-windows.ps1` 构建桌面版 `bin\grf-desktop.exe`，两者不会再互相覆盖。两个版本共享 `%USERPROFILE%\.grf\config.env`、日志和产物目录，`GRF_HOME` 可覆盖数据根目录。
 
 clearance 栈使用 Docker Desktop 的 Linux containers 和 WSL2 backend：
 
@@ -394,7 +394,7 @@ docker compose ps
 | 变量 | 说明 |
 |------|------|
 | `GROK_HOME` | Linux/macOS 数据根目录；Windows 作为旧配置兼容回退 |
-| `GTR_HOME` | Windows 数据根目录，默认 `%USERPROFILE%\.gtr` |
+| `GRF_HOME` | Windows 数据根目录，默认 `%USERPROFILE%\.grf` |
 | `GROK_PYTHON` | 跑 `turnstile_mint.py` / `turnstile_pool.py` 的 Python |
 | `GROK_TURNSTILE_SCRIPT` | one-shot mint 脚本路径 |
 | `GROK_TURNSTILE_POOL_SCRIPT` | 常驻池脚本路径 |

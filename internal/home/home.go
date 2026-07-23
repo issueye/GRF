@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	EnvHome        = "GROK_HOME"
-	EnvHomeWindows = "GTR_HOME"
-	DirName        = ".grok"
-	DirNameWindows = ".gtr"
+	EnvHome        = "GRF_HOME"
+	EnvHomeWindows = "GRF_HOME"
+	DirName        = ".grf"
+	DirNameWindows = ".grf"
 )
 
 // Paths holds all filesystem locations under the platform data root.

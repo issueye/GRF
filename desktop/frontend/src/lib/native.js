@@ -41,9 +41,9 @@ export async function bootstrap() {
   if (!hasNativeRuntime()) {
     return {
       name: 'GRF', version: 'preview', platform: 'browser',
-      data_root: 'C:\\Users\\preview\\.gtr',
-      config_path: 'C:\\Users\\preview\\.gtr\\config.env',
-      output_root: 'C:\\Users\\preview\\.gtr\\outputs',
+      data_root: 'C:\\Users\\preview\\.grf',
+      config_path: 'C:\\Users\\preview\\.grf\\config.env',
+      output_root: 'C:\\Users\\preview\\.grf\\outputs',
       chrome_path: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     };
   }
@@ -88,8 +88,8 @@ export async function tailLog() {
 export async function listRuns() {
   if (!hasNativeRuntime()) {
     return [
-      { id: '20260722-204512', path: 'C:\\Users\\preview\\.gtr\\outputs\\20260722-204512', updated_at: '2026-07-22T20:49:08+08:00', cpa_count: 8, sso_count: 8 },
-      { id: '20260722-193104', path: 'C:\\Users\\preview\\.gtr\\outputs\\20260722-193104', updated_at: '2026-07-22T19:36:42+08:00', cpa_count: 5, sso_count: 6 },
+      { id: '20260722-204512', path: 'C:\\Users\\preview\\.grf\\outputs\\20260722-204512', updated_at: '2026-07-22T20:49:08+08:00', cpa_count: 8, sso_count: 8 },
+      { id: '20260722-193104', path: 'C:\\Users\\preview\\.grf\\outputs\\20260722-193104', updated_at: '2026-07-22T19:36:42+08:00', cpa_count: 5, sso_count: 6 },
     ];
   }
   try {

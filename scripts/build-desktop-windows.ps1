@@ -61,7 +61,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "desktop build failed with exit code $LASTEXITCODE" }
 
     Write-Host "Built: $binaryPath"
-    Write-Host "Data:  %USERPROFILE%\.gtr (override with GTR_HOME)"
+    Write-Host "Data:  %USERPROFILE%\.grf (override with GRF_HOME)"
 }
 finally {
     Pop-Location
