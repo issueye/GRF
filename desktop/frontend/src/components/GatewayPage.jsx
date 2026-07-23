@@ -21,8 +21,8 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
   return (
     <section className="page gateway-page" aria-labelledby="gateway-title">
       <div className="page-heading">
-        <div><h1 id="gateway-title">API 网关</h1><p>Grok Build 的 OpenAI 与 Anthropic 兼容入口。</p></div>
-        <button className="button button-primary" disabled={busy} onClick={onSave} type="button"><Save size={14} /> 保存并应用</button>
+        <h1 id="gateway-title">API 网关</h1>
+        <button className="button button-primary" disabled={busy} onClick={() => onSave()} type="button"><Save size={14} /> 保存并应用</button>
       </div>
 
       <div className={running ? 'gateway-hero is-running' : 'gateway-hero'}>

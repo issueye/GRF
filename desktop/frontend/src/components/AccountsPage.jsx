@@ -15,7 +15,7 @@ export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRe
   };
   return (
     <section className="page" aria-labelledby="accounts-title">
-      <div className="page-heading"><div><h1 id="accounts-title">账号</h1><p>注册成功的账号会自动入库，也可批量导入 CPA JSON。</p></div><div className="heading-actions"><button className="button button-primary" disabled={busy} onClick={runImport} type="button"><FileUp size={14} /> 导入 CPA</button><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button></div></div>
+      <div className="page-heading"><h1 id="accounts-title">账号</h1><div className="heading-actions"><button className="button button-primary" disabled={busy} onClick={runImport} type="button"><FileUp size={14} /> 导入 CPA</button><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button></div></div>
       <form className="account-health-panel" onSubmit={(event) => { event.preventDefault(); onSaveHealth(); }}>
         <div className="account-health-title"><Timer size={17} /><span><strong>定时测活</strong><small>通过 Build 模型目录检查已启用账号，不消耗对话额度</small></span></div>
         <label className="switch-row account-health-switch"><span><strong>{settings?.api_account_health_enabled ? '已开启' : '已关闭'}</strong><small>保存后立即生效</small></span><input checked={Boolean(settings?.api_account_health_enabled)} disabled={!settings} onChange={(event) => patchHealth('api_account_health_enabled', event.target.checked)} type="checkbox" /></label>
@@ -27,8 +27,16 @@ export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRe
       {checkResult ? <div className={checkResult.unhealthy ? 'health-summary has-errors' : 'health-summary'}><Activity size={16} /><span><strong>测活完成</strong><small>{checkResult.checked} 个账号：{checkResult.healthy} 个正常，{checkResult.unhealthy} 个异常</small></span><button className="icon-button" onClick={() => setCheckResult(null)} title="关闭测活结果" type="button"><X size={14} /></button></div> : null}
       {!accounts.length ? <div className="empty-state table-shell"><Users size={24} /><strong>暂无可用账号</strong><span>完成一次注册后，凭据将自动加密导入。</span></div> : (
         <div className="gateway-table accounts-table">
-          <div className="gateway-table-head"><span>账号</span><span>状态</span><span>测活</span><span>并发</span><span>操作</span></div>
-          {accounts.map((account) => <AccountRow account={account} key={account.id} onDelete={onDelete} onUpdate={onUpdate} />)}
+          <div className="gateway-table-head">
+            <span>账号</span>
+            <span>状态</span>
+            <span>测活</span>
+            <span>并发</span>
+            <span>操作</span>
+          </div>
+          <div className="gateway-table-body">
+            {accounts.map((account) => <AccountRow account={account} key={account.id} onDelete={onDelete} onUpdate={onUpdate} />)}
+          </div>
         </div>
       )}
     </section>

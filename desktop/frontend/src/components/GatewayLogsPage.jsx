@@ -25,7 +25,7 @@ export function GatewayLogsPage({ busy, logs, onClear, onRefresh }) {
   return (
     <section className="page gateway-logs-page" aria-labelledby="gateway-logs-title">
       <div className="page-heading">
-        <div><h1 id="gateway-logs-title">网关日志</h1><p>当前进程中的实时请求记录。</p></div>
+        <h1 id="gateway-logs-title">网关日志</h1>
         <div className="heading-actions"><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button><button className="button button-secondary danger-label" disabled={busy || !logs.length} onClick={onClear} type="button"><Trash2 size={14} /> 清空</button></div>
       </div>
 

@@ -11,7 +11,7 @@ export function SettingsPage({ settings, setSettings, configPath, busy, onSave, 
         <h1 id="settings-title">运行设置</h1>
         <div className="heading-actions">
           <button className="button button-secondary" onClick={onOpenConfig} type="button"><FileText size={14} /> 打开配置文件</button>
-          <button className="button button-primary" disabled={busy} onClick={onSave} type="button"><Save size={14} /> 保存设置</button>
+          <button className="button button-primary" disabled={busy} onClick={() => onSave()} type="button"><Save size={14} /> 保存设置</button>
         </div>
       </div>
       <div className="config-path"><span>配置文件</span><code>{configPath}</code></div>

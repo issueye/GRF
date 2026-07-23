@@ -118,12 +118,13 @@ export function App() {
     }
   }
 
-  async function handleSaveSettings(success = '配置已经保存') {
+  async function handleSaveSettings(success) {
+    const successMessage = typeof success === 'string' ? success : '配置已经保存';
     setBusy(true);
     try {
       await saveSettings(settings);
       await refreshGateway();
-		setNotice(success);
+		setNotice(successMessage);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
