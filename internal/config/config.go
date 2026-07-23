@@ -69,48 +69,52 @@ type Config struct {
 	CPAUploadVerify       bool
 	CPAUploadMode         string // multipart | json
 
-	APIEnabled       bool
-	APIListenHost    string
-	APIListenPort    int
-	APIStreamDefault bool
+	APIEnabled                      bool
+	APIListenHost                   string
+	APIListenPort                   int
+	APIStreamDefault                bool
+	APIAccountHealthEnabled         bool
+	APIAccountHealthIntervalMinutes int
 }
 
 func Defaults() Config {
 	return Config{
-		EmailMode:             EmailTempmail,
-		EmailAPI:              "http://127.0.0.1:8080",
-		TestmailDomain:        "inbox.testmail.app",
-		ClearanceEnabled:      true,
-		RegisterProxy:         "http://127.0.0.1:40080",
-		FlareSolverrURL:       "http://127.0.0.1:8191",
-		ClearanceProxy:        "http://privoxy:8118",
-		ClearanceURLs:         "https://accounts.x.ai,https://x.ai,https://status.x.ai,https://console.x.ai,https://auth.x.ai",
-		Target:                0, // set by start CLI/prompt
-		PhysicalCap:           0,
-		TurnstileProvider:     "browser",
-		LiteSolverURL:         "http://127.0.0.1:5072",
-		TurnstileWorkers:      0, // set by start CLI/prompt
-		ProtocolHTTP:          true,
-		HTTPPoolSize:          8,
-		TempmailLOLRetries:    30,
-		TempmailLOLIntervalMS: 1500,
-		OAuthMinIntervalSec:   10,
-		OAuthRetrySec:         60,
-		ProbeEnabled:          true,
-		HTTPProxy:             "http://127.0.0.1:40080",
-		HTTPSProxy:            "http://127.0.0.1:40080",
-		NoProxy:               "127.0.0.1,localhost",
-		CPAUploadEnabled:      false,
-		CPAManagementBase:     "http://localhost:8317/v0/management",
-		CPAUploadTimeoutSec:   30,
-		CPAUploadRetries:      2,
-		CPAUploadNameTemplate: "{email}.json",
-		CPAUploadVerify:       true,
-		CPAUploadMode:         "multipart",
-		APIEnabled:            false,
-		APIListenHost:         "127.0.0.1",
-		APIListenPort:         8000,
-		APIStreamDefault:      false,
+		EmailMode:                       EmailTempmail,
+		EmailAPI:                        "http://127.0.0.1:8080",
+		TestmailDomain:                  "inbox.testmail.app",
+		ClearanceEnabled:                true,
+		RegisterProxy:                   "http://127.0.0.1:40080",
+		FlareSolverrURL:                 "http://127.0.0.1:8191",
+		ClearanceProxy:                  "http://privoxy:8118",
+		ClearanceURLs:                   "https://accounts.x.ai,https://x.ai,https://status.x.ai,https://console.x.ai,https://auth.x.ai",
+		Target:                          0, // set by start CLI/prompt
+		PhysicalCap:                     0,
+		TurnstileProvider:               "browser",
+		LiteSolverURL:                   "http://127.0.0.1:5072",
+		TurnstileWorkers:                0, // set by start CLI/prompt
+		ProtocolHTTP:                    true,
+		HTTPPoolSize:                    8,
+		TempmailLOLRetries:              30,
+		TempmailLOLIntervalMS:           1500,
+		OAuthMinIntervalSec:             10,
+		OAuthRetrySec:                   60,
+		ProbeEnabled:                    true,
+		HTTPProxy:                       "http://127.0.0.1:40080",
+		HTTPSProxy:                      "http://127.0.0.1:40080",
+		NoProxy:                         "127.0.0.1,localhost",
+		CPAUploadEnabled:                false,
+		CPAManagementBase:               "http://localhost:8317/v0/management",
+		CPAUploadTimeoutSec:             30,
+		CPAUploadRetries:                2,
+		CPAUploadNameTemplate:           "{email}.json",
+		CPAUploadVerify:                 true,
+		CPAUploadMode:                   "multipart",
+		APIEnabled:                      false,
+		APIListenHost:                   "127.0.0.1",
+		APIListenPort:                   8000,
+		APIStreamDefault:                false,
+		APIAccountHealthEnabled:         false,
+		APIAccountHealthIntervalMinutes: 30,
 	}
 }
 
@@ -171,6 +175,8 @@ func Save(path string, cfg Config) error {
 	b.WriteString(fmt.Sprintf("API_LISTEN_HOST=%s\n", cfg.APIListenHost))
 	b.WriteString(fmt.Sprintf("API_LISTEN_PORT=%d\n", cfg.APIListenPort))
 	b.WriteString(fmt.Sprintf("API_STREAM_DEFAULT=%s\n", bool01(cfg.APIStreamDefault)))
+	b.WriteString(fmt.Sprintf("API_ACCOUNT_HEALTH_ENABLED=%s\n", bool01(cfg.APIAccountHealthEnabled)))
+	b.WriteString(fmt.Sprintf("API_ACCOUNT_HEALTH_INTERVAL_MINUTES=%d\n", cfg.APIAccountHealthIntervalMinutes))
 	return os.WriteFile(path, []byte(b.String()), 0o600)
 }
 
@@ -406,6 +412,14 @@ func applyMap(cfg *Config, env map[string]string) {
 	}
 	if v, ok := env["API_STREAM_DEFAULT"]; ok {
 		cfg.APIStreamDefault = truthy(v)
+	}
+	if v, ok := env["API_ACCOUNT_HEALTH_ENABLED"]; ok {
+		cfg.APIAccountHealthEnabled = truthy(v)
+	}
+	if v, ok := env["API_ACCOUNT_HEALTH_INTERVAL_MINUTES"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.APIAccountHealthIntervalMinutes = n
+		}
 	}
 }
 

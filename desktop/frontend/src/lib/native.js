@@ -31,6 +31,8 @@ const demoSettings = {
   api_listen_host: '127.0.0.1',
   api_listen_port: 8000,
 	api_stream_default: false,
+	api_account_health_enabled: false,
+	api_account_health_interval_minutes: 30,
 };
 
 const demoGateway = {
@@ -143,6 +145,13 @@ export async function clearGatewayRequestLogs() {
 
 export async function listGatewayAccounts() {
   return hasNativeRuntime() ? invoke('ListGatewayAccounts') : demoGateway.accounts;
+}
+
+export async function checkGatewayAccounts() {
+  if (hasNativeRuntime()) return invoke('CheckGatewayAccounts');
+  const now = new Date().toISOString();
+  demoGateway.accounts = demoGateway.accounts.map((account) => ({ ...account, health_status: 'healthy', last_checked_at: now, health_latency_ms: 42, health_error: '' }));
+  return { checked: demoGateway.accounts.filter((account) => account.enabled).length, healthy: demoGateway.accounts.filter((account) => account.enabled).length, unhealthy: 0, started_at: now, completed_at: now };
 }
 
 export async function importGatewayAccounts() {

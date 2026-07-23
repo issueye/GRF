@@ -4,6 +4,7 @@
 export {
     APIKey,
     Account,
+    AccountHealthSummary,
     Model,
     RequestLog,
     Status

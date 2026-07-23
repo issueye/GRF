@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 var schemaV1 = []string{
 	`CREATE TABLE IF NOT EXISTS gateway_accounts (
@@ -68,6 +68,13 @@ var schemaV2 = []string{
 	`ALTER TABLE gateway_api_keys ADD COLUMN secret_ciphertext TEXT NOT NULL DEFAULT ''`,
 }
 
+var schemaV3 = []string{
+	`ALTER TABLE gateway_accounts ADD COLUMN health_status TEXT NOT NULL DEFAULT 'unknown'`,
+	`ALTER TABLE gateway_accounts ADD COLUMN last_checked_at TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE gateway_accounts ADD COLUMN health_latency_ms INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE gateway_accounts ADD COLUMN health_error TEXT NOT NULL DEFAULT ''`,
+}
+
 func migrate(ctx context.Context, db *sql.DB) error {
 	var version int
 	if err := db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
@@ -87,7 +94,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	migrations := []struct {
 		version    int
 		statements []string
-	}{{1, schemaV1}, {2, schemaV2}}
+	}{{1, schemaV1}, {2, schemaV2}, {3, schemaV3}}
 	for _, migration := range migrations {
 		if version >= migration.version {
 			continue

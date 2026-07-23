@@ -30,6 +30,9 @@ type Manager struct {
 	status        Status
 	logs          *RequestLogBuffer
 	defaultStream atomic.Bool
+	healthRunning atomic.Bool
+	healthMu      sync.Mutex
+	healthCancel  context.CancelFunc
 }
 
 func NewManager(store *Store) *Manager {

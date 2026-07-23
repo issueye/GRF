@@ -172,6 +172,34 @@ export class Account {
              */
             this["observed_model"] = "";
         }
+        if (!("health_status" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["health_status"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["last_checked_at"] = undefined;
+        }
+        if (!("health_latency_ms" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["health_latency_ms"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["health_error"] = undefined;
+        }
         if (/** @type {any} */(false)) {
             /**
              * @member
@@ -205,6 +233,62 @@ export class Account {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Account(/** @type {Partial<Account>} */($$parsedSource));
+    }
+}
+
+export class AccountHealthSummary {
+    /**
+     * Creates a new AccountHealthSummary instance.
+     * @param {Partial<AccountHealthSummary>} [$$source = {}] - The source object to create the AccountHealthSummary.
+     */
+    constructor($$source = {}) {
+        if (!("checked" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["checked"] = 0;
+        }
+        if (!("healthy" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["healthy"] = 0;
+        }
+        if (!("unhealthy" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["unhealthy"] = 0;
+        }
+        if (!("started_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["started_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("completed_at" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["completed_at"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AccountHealthSummary instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AccountHealthSummary}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AccountHealthSummary(/** @type {Partial<AccountHealthSummary>} */($$parsedSource));
     }
 }
 

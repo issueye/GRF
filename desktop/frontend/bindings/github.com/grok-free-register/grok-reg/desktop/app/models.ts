@@ -330,6 +330,8 @@ export class Settings {
     "api_listen_host": string;
     "api_listen_port": number;
     "api_stream_default": boolean;
+    "api_account_health_enabled": boolean;
+    "api_account_health_interval_minutes": number;
 
     /** Creates a new Settings instance. */
     constructor($$source: Partial<Settings> = {}) {
@@ -374,6 +376,12 @@ export class Settings {
         }
         if (!("api_stream_default" in $$source)) {
             this["api_stream_default"] = false;
+        }
+        if (!("api_account_health_enabled" in $$source)) {
+            this["api_account_health_enabled"] = false;
+        }
+        if (!("api_account_health_interval_minutes" in $$source)) {
+            this["api_account_health_interval_minutes"] = 0;
         }
 
         Object.assign(this, $$source);

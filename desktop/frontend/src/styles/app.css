@@ -245,6 +245,28 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .concurrency-input { width: 66px; }
 .row-actions { display: flex; gap: 6px; }
 .danger-icon { color: var(--danger); }
+.account-health-panel { display: grid; grid-template-columns: minmax(260px, 1fr) 150px 118px auto auto; align-items: end; gap: 12px; margin-bottom: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.account-health-title { display: flex; align-items: center; gap: 9px; color: var(--brand-action); }
+.account-health-title > span { display: grid; gap: 2px; }
+.account-health-title strong { color: var(--text-strong); font-size: 12px; }
+.account-health-title small, .account-health-switch small { color: var(--text-muted); font-size: 10px; font-weight: 400; }
+.account-health-switch { min-height: 34px; }
+.account-health-interval { display: grid; gap: 5px; color: var(--text-muted); font-size: 10px; font-weight: 600; }
+.account-health-interval input { height: 34px; }
+.health-summary { display: grid; grid-template-columns: 22px minmax(0, 1fr) 30px; align-items: start; gap: 9px; margin-bottom: 14px; padding: 11px 12px; color: var(--success); background: var(--success-soft); border: 1px solid #abefc6; border-radius: 8px; }
+.health-summary.has-errors { color: #b54708; background: #fffaeb; border-color: #fedf89; }
+.health-summary > span { display: grid; gap: 3px; }
+.health-summary strong { color: var(--text-strong); font-size: 12px; }
+.health-summary small { color: var(--text-muted); font-size: 11px; }
+.accounts-table .gateway-table-head, .accounts-table .gateway-table-row { grid-template-columns: minmax(190px, 1fr) 110px 150px 70px 78px; }
+.account-health-state { display: grid; min-width: 0; gap: 3px; }
+.account-health-state > span { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.account-health-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-soft); }
+.account-health-state.is-healthy > span { color: var(--success); }
+.account-health-state.is-healthy i { background: #12b76a; }
+.account-health-state.is-unhealthy > span { color: var(--danger); }
+.account-health-state.is-unhealthy i { background: #f04438; }
+.account-health-state small { overflow: hidden; color: var(--text-soft); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .import-summary { display: grid; grid-template-columns: 22px minmax(0, 1fr) 30px; align-items: start; gap: 9px; margin-bottom: 14px; padding: 11px 12px; color: var(--success); background: var(--success-soft); border: 1px solid #abefc6; border-radius: 8px; }
 .import-summary.has-errors { color: #b54708; background: #fffaeb; border-color: #fedf89; }
 .import-summary > div { display: grid; gap: 3px; }
@@ -303,6 +325,7 @@ input:focus, select:focus { border-color: var(--brand-action); }
   .environment-summary small { width: 8px; height: 8px; border-radius: 99px; background: #12b76a; color: transparent; }
   .launch-panel { grid-template-columns: minmax(180px, 1fr) 100px 90px auto; }
   .page { padding-inline: 20px; }
+  .account-health-panel { grid-template-columns: minmax(220px, 1fr) 140px 108px auto auto; }
 }
 
 @media (max-width: 820px) {
@@ -323,6 +346,10 @@ input:focus, select:focus { border-color: var(--brand-action); }
   .log-search { order: 3; width: calc(100% - 130px); }
   .log-autoscroll { order: 3; margin-left: 0; }
   .gateway-table-head, .gateway-table-row, .keys-table .gateway-table-head, .keys-table .gateway-table-row { grid-template-columns: minmax(150px, 1fr) 100px 40px; }
+	.accounts-table .gateway-table-head, .accounts-table .gateway-table-row { grid-template-columns: minmax(150px, 1fr) 110px 78px; }
+	.accounts-table .gateway-table-head > :nth-child(3), .accounts-table .gateway-table-row > :nth-child(3), .accounts-table .gateway-table-head > :nth-child(4), .accounts-table .gateway-table-row > :nth-child(4) { display: none; }
+	.account-health-panel { grid-template-columns: 1fr 1fr; align-items: end; }
+	.account-health-title { grid-column: 1 / -1; }
   .gateway-table-head span:nth-child(3), .gateway-table-row > :nth-child(3) { display: none; }
   .table-header, .table-row { grid-template-columns: minmax(180px, 1fr) 58px 58px 38px; }
   .table-header span:nth-child(4), .table-row time { display: none; }

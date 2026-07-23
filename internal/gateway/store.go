@@ -243,19 +243,47 @@ func (s *Store) MarkAccountFailure(ctx context.Context, id int64, permanent bool
 	return requireChanged(result)
 }
 
+func (s *Store) UpdateAccountHealth(ctx context.Context, id int64, healthy bool, latency time.Duration, healthErr string, authFailed bool) error {
+	status := HealthFailed
+	authStatus := AuthActive
+	if healthy {
+		status = HealthHealthy
+	} else if authFailed {
+		authStatus = AuthRequired
+	}
+	healthErr = strings.Join(strings.Fields(healthErr), " ")
+	if len(healthErr) > 512 {
+		healthErr = healthErr[:512]
+	}
+	latencyMS := latency.Milliseconds()
+	if latencyMS < 0 {
+		latencyMS = 0
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE gateway_accounts SET health_status = ?,
+		last_checked_at = ?, health_latency_ms = ?, health_error = ?, auth_status = ?, updated_at = ? WHERE id = ?`,
+		status, formatTime(time.Now().UTC()), latencyMS, healthErr, authStatus, formatTime(time.Now().UTC()), id)
+	if err != nil {
+		return fmt.Errorf("update gateway account health: %w", err)
+	}
+	return requireChanged(result)
+}
+
 const accountSelect = `SELECT id, provider, name, email, user_id, enabled, auth_status,
 	max_concurrent, failure_count, cooldown_until, last_used_at, observed_model,
+	health_status, last_checked_at, health_latency_ms, health_error,
 	expires_at, created_at, updated_at FROM gateway_accounts`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanAccount(row rowScanner, account *Account) error {
 	var enabled int
-	var expiresAt, cooldownUntil, lastUsedAt, createdAt, updatedAt string
+	var expiresAt, cooldownUntil, lastUsedAt, lastCheckedAt, createdAt, updatedAt string
 	if err := row.Scan(
 		&account.ID, &account.Provider, &account.Name, &account.Email, &account.UserID,
 		&enabled, &account.AuthStatus, &account.MaxConcurrent, &account.FailureCount,
-		&cooldownUntil, &lastUsedAt, &account.ObservedModel, &expiresAt, &createdAt, &updatedAt,
+		&cooldownUntil, &lastUsedAt, &account.ObservedModel,
+		&account.HealthStatus, &lastCheckedAt, &account.HealthLatency, &account.HealthError,
+		&expiresAt, &createdAt, &updatedAt,
 	); err != nil {
 		return fmt.Errorf("scan gateway account: %w", err)
 	}
@@ -263,6 +291,7 @@ func scanAccount(row rowScanner, account *Account) error {
 	account.ExpiresAt = parseOptionalTime(expiresAt)
 	account.CooldownUntil = parseOptionalTime(cooldownUntil)
 	account.LastUsedAt = parseOptionalTime(lastUsedAt)
+	account.LastCheckedAt = parseOptionalTime(lastCheckedAt)
 	account.CreatedAt = parseTime(createdAt)
 	account.UpdatedAt = parseTime(updatedAt)
 	return nil

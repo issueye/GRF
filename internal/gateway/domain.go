@@ -6,6 +6,9 @@ const (
 	ProviderBuild = "grok_build"
 	AuthActive    = "active"
 	AuthRequired  = "reauth_required"
+	HealthUnknown = "unknown"
+	HealthHealthy = "healthy"
+	HealthFailed  = "unhealthy"
 )
 
 // Account is the non-secret account state exposed to the desktop UI.
@@ -22,9 +25,21 @@ type Account struct {
 	CooldownUntil *time.Time `json:"cooldown_until,omitempty"`
 	LastUsedAt    *time.Time `json:"last_used_at,omitempty"`
 	ObservedModel string     `json:"observed_model"`
+	HealthStatus  string     `json:"health_status"`
+	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
+	HealthLatency int64      `json:"health_latency_ms"`
+	HealthError   string     `json:"health_error,omitempty"`
 	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
+type AccountHealthSummary struct {
+	Checked     int       `json:"checked"`
+	Healthy     int       `json:"healthy"`
+	Unhealthy   int       `json:"unhealthy"`
+	StartedAt   time.Time `json:"started_at"`
+	CompletedAt time.Time `json:"completed_at"`
 }
 
 // Credential is the encrypted-at-rest Build credential used internally.

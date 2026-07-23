@@ -40,3 +40,39 @@ func TestMigrateV1APIKeysRemainNonRecoverable(t *testing.T) {
 		t.Fatalf("legacy secret error = %v", err)
 	}
 }
+
+func TestMigrateV2AddsAccountHealthColumns(t *testing.T) {
+	dir := t.TempDir()
+	databasePath := filepath.Join(dir, "gateway.db")
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range schemaV1 {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, statement := range schemaV2 {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`PRAGMA user_version = 2`); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+
+	store, err := OpenStore(context.Background(), databasePath, filepath.Join(dir, "credential.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	account, _, err := store.UpsertAccount(context.Background(), AccountSeed{UserID: "migrated", AccessToken: "access"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if account.HealthStatus != HealthUnknown {
+		t.Fatalf("migrated account health = %+v", account)
+	}
+}

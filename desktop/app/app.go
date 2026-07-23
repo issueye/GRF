@@ -74,20 +74,22 @@ type RunEntry struct {
 }
 
 type Settings struct {
-	EmailMode         string `json:"email_mode"`
-	EmailDomain       string `json:"email_domain"`
-	EmailAPI          string `json:"email_api"`
-	RegisterProxy     string `json:"register_proxy"`
-	ClearanceEnabled  bool   `json:"clearance_enabled"`
-	FlareSolverrURL   string `json:"flaresolverr_url"`
-	TurnstileProvider string `json:"turnstile_provider"`
-	LiteSolverURL     string `json:"lite_solver_url"`
-	CPAUploadEnabled  bool   `json:"cpa_upload_enabled"`
-	CPAManagementBase string `json:"cpa_management_base"`
-	APIEnabled        bool   `json:"api_enabled"`
-	APIListenHost     string `json:"api_listen_host"`
-	APIListenPort     int    `json:"api_listen_port"`
-	APIStreamDefault  bool   `json:"api_stream_default"`
+	EmailMode                       string `json:"email_mode"`
+	EmailDomain                     string `json:"email_domain"`
+	EmailAPI                        string `json:"email_api"`
+	RegisterProxy                   string `json:"register_proxy"`
+	ClearanceEnabled                bool   `json:"clearance_enabled"`
+	FlareSolverrURL                 string `json:"flaresolverr_url"`
+	TurnstileProvider               string `json:"turnstile_provider"`
+	LiteSolverURL                   string `json:"lite_solver_url"`
+	CPAUploadEnabled                bool   `json:"cpa_upload_enabled"`
+	CPAManagementBase               string `json:"cpa_management_base"`
+	APIEnabled                      bool   `json:"api_enabled"`
+	APIListenHost                   string `json:"api_listen_host"`
+	APIListenPort                   int    `json:"api_listen_port"`
+	APIStreamDefault                bool   `json:"api_stream_default"`
+	APIAccountHealthEnabled         bool   `json:"api_account_health_enabled"`
+	APIAccountHealthIntervalMinutes int    `json:"api_account_health_interval_minutes"`
 }
 
 type GatewayAccountUpdate struct {
@@ -142,12 +144,16 @@ func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) er
 		a.gatewayErr = err
 		return nil
 	}
+	if err := a.gatewayManager.SetUpstreamProxy(cfg.RegisterProxy); err != nil {
+		a.gatewayErr = err
+		return nil
+	}
+	a.gatewayManager.SetDefaultStream(cfg.APIStreamDefault)
+	if err := a.gatewayManager.ConfigureHealthChecks(cfg.APIAccountHealthEnabled, time.Duration(cfg.APIAccountHealthIntervalMinutes)*time.Minute); err != nil {
+		a.gatewayErr = err
+		return nil
+	}
 	if cfg.APIEnabled {
-		if err := a.gatewayManager.SetUpstreamProxy(cfg.RegisterProxy); err != nil {
-			a.gatewayErr = err
-			return nil
-		}
-		a.gatewayManager.SetDefaultStream(cfg.APIStreamDefault)
 		a.gatewayErr = a.gatewayManager.Start(net.JoinHostPort(cfg.APIListenHost, fmt.Sprint(cfg.APIListenPort)))
 	}
 	return nil
@@ -158,6 +164,7 @@ func (a *App) ServiceShutdown() error {
 	defer a.mu.Unlock()
 	var stopErr error
 	if a.gatewayManager != nil {
+		a.gatewayManager.StopHealthChecks()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		stopErr = a.gatewayManager.Stop(ctx)
 		cancel()
@@ -356,7 +363,9 @@ func (a *App) GetSettings() (Settings, error) {
 		LiteSolverURL: cfg.LiteSolverURL, CPAUploadEnabled: cfg.CPAUploadEnabled,
 		CPAManagementBase: cfg.CPAManagementBase, APIEnabled: cfg.APIEnabled,
 		APIListenHost: cfg.APIListenHost, APIListenPort: cfg.APIListenPort,
-		APIStreamDefault: cfg.APIStreamDefault,
+		APIStreamDefault:                cfg.APIStreamDefault,
+		APIAccountHealthEnabled:         cfg.APIAccountHealthEnabled,
+		APIAccountHealthIntervalMinutes: cfg.APIAccountHealthIntervalMinutes,
 	}, nil
 }
 
@@ -380,28 +389,33 @@ func (a *App) SaveSettings(settings Settings) error {
 	if settings.APIListenPort < 1 || settings.APIListenPort > 65535 {
 		return fmt.Errorf("API 监听端口必须在 1 到 65535 之间")
 	}
+	if settings.APIAccountHealthIntervalMinutes < 5 || settings.APIAccountHealthIntervalMinutes > 1440 {
+		return fmt.Errorf("账号测活间隔必须在 5 到 1440 分钟之间")
+	}
 	updates := map[string]string{
-		"EMAIL_MODE":          stringOr(settings.EmailMode, "tempmail"),
-		"EMAIL_DOMAIN":        strings.TrimSpace(settings.EmailDomain),
-		"EMAIL_API":           strings.TrimSpace(settings.EmailAPI),
-		"REGISTER_PROXY":      proxy,
-		"HTTP_PROXY":          proxy,
-		"HTTPS_PROXY":         proxy,
-		"CLEARANCE_ENABLED":   bool01(settings.ClearanceEnabled),
-		"FLARESOLVERR_URL":    strings.TrimSpace(settings.FlareSolverrURL),
-		"TURNSTILE_PROVIDER":  provider,
-		"LITE_SOLVER_URL":     strings.TrimSpace(settings.LiteSolverURL),
-		"CPA_UPLOAD_ENABLED":  bool01(settings.CPAUploadEnabled),
-		"CPA_MANAGEMENT_BASE": strings.TrimSpace(settings.CPAManagementBase),
-		"API_ENABLED":         bool01(settings.APIEnabled),
-		"API_LISTEN_HOST":     host,
-		"API_LISTEN_PORT":     fmt.Sprint(settings.APIListenPort),
-		"API_STREAM_DEFAULT":  bool01(settings.APIStreamDefault),
+		"EMAIL_MODE":                          stringOr(settings.EmailMode, "tempmail"),
+		"EMAIL_DOMAIN":                        strings.TrimSpace(settings.EmailDomain),
+		"EMAIL_API":                           strings.TrimSpace(settings.EmailAPI),
+		"REGISTER_PROXY":                      proxy,
+		"HTTP_PROXY":                          proxy,
+		"HTTPS_PROXY":                         proxy,
+		"CLEARANCE_ENABLED":                   bool01(settings.ClearanceEnabled),
+		"FLARESOLVERR_URL":                    strings.TrimSpace(settings.FlareSolverrURL),
+		"TURNSTILE_PROVIDER":                  provider,
+		"LITE_SOLVER_URL":                     strings.TrimSpace(settings.LiteSolverURL),
+		"CPA_UPLOAD_ENABLED":                  bool01(settings.CPAUploadEnabled),
+		"CPA_MANAGEMENT_BASE":                 strings.TrimSpace(settings.CPAManagementBase),
+		"API_ENABLED":                         bool01(settings.APIEnabled),
+		"API_LISTEN_HOST":                     host,
+		"API_LISTEN_PORT":                     fmt.Sprint(settings.APIListenPort),
+		"API_STREAM_DEFAULT":                  bool01(settings.APIStreamDefault),
+		"API_ACCOUNT_HEALTH_ENABLED":          bool01(settings.APIAccountHealthEnabled),
+		"API_ACCOUNT_HEALTH_INTERVAL_MINUTES": fmt.Sprint(settings.APIAccountHealthIntervalMinutes),
 	}
 	if err := patchEnvFile(p.Config, updates); err != nil {
 		return err
 	}
-	return a.applyGatewaySettings(settings.APIEnabled, net.JoinHostPort(host, fmt.Sprint(settings.APIListenPort)), proxy, settings.APIStreamDefault)
+	return a.applyGatewaySettings(settings.APIEnabled, net.JoinHostPort(host, fmt.Sprint(settings.APIListenPort)), proxy, settings.APIStreamDefault, settings.APIAccountHealthEnabled, settings.APIAccountHealthIntervalMinutes)
 }
 
 func (a *App) GatewayStatus() gateway.Status {
@@ -467,6 +481,19 @@ func (a *App) ImportGatewayAccounts(paths []string) (GatewayAccountImportResult,
 		return GatewayAccountImportResult{}, err
 	}
 	return importGatewayAccountFiles(context.Background(), store, paths), nil
+}
+
+func (a *App) CheckGatewayAccounts() (gateway.AccountHealthSummary, error) {
+	a.mu.Lock()
+	a.openGatewayLocked()
+	manager, err := a.gatewayManager, a.gatewayErr
+	a.mu.Unlock()
+	if err != nil {
+		return gateway.AccountHealthSummary{}, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return manager.CheckAccounts(ctx)
 }
 
 func importGatewayAccountFiles(ctx context.Context, store *gateway.Store, paths []string) GatewayAccountImportResult {
@@ -585,7 +612,7 @@ func (a *App) DeleteAPIKey(id int64) error {
 	return store.DeleteAPIKey(context.Background(), id)
 }
 
-func (a *App) applyGatewaySettings(enabled bool, address, proxyURL string, defaultStream bool) error {
+func (a *App) applyGatewaySettings(enabled bool, address, proxyURL string, defaultStream, healthEnabled bool, healthIntervalMinutes int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.openGatewayLocked()
@@ -596,6 +623,9 @@ func (a *App) applyGatewaySettings(enabled bool, address, proxyURL string, defau
 		return err
 	}
 	a.gatewayManager.SetDefaultStream(defaultStream)
+	if err := a.gatewayManager.ConfigureHealthChecks(healthEnabled, time.Duration(healthIntervalMinutes)*time.Minute); err != nil {
+		return err
+	}
 	status := a.gatewayManager.Status()
 	if status.Running && (!enabled || status.Address != address) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

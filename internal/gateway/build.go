@@ -73,6 +73,73 @@ func (c *BuildClient) ForwardResponses(ctx context.Context, credential Credentia
 	return c.Forward(ctx, credential, "/responses", body, model)
 }
 
+func (c *BuildClient) CheckHealth(ctx context.Context, credential Credential) (Credential, error) {
+	var err error
+	if credential.AccessToken == "" || (credential.ExpiresAt != nil && credential.ExpiresAt.Before(time.Now().UTC().Add(time.Minute))) {
+		credential, err = c.refresh(ctx, credential)
+		if err != nil {
+			return credential, err
+		}
+	}
+	response, err := c.doHealth(ctx, credential)
+	if err != nil {
+		return credential, err
+	}
+	if response.StatusCode == http.StatusUnauthorized && credential.RefreshToken != "" {
+		_ = response.Body.Close()
+		credential, err = c.refresh(ctx, credential)
+		if err != nil {
+			return credential, err
+		}
+		response, err = c.doHealth(ctx, credential)
+		if err != nil {
+			return credential, err
+		}
+	}
+	defer response.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
+	if err != nil {
+		return credential, fmt.Errorf("read Build model catalog: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return credential, &HealthCheckError{StatusCode: response.StatusCode}
+	}
+	var catalog struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &catalog); err != nil {
+		return credential, fmt.Errorf("parse Build model catalog: %w", err)
+	}
+	if catalog.Data == nil {
+		return credential, fmt.Errorf("Build model catalog does not contain data")
+	}
+	return credential, nil
+}
+
+func (c *BuildClient) doHealth(ctx context.Context, credential Credential) (*http.Response, error) {
+	endpoint := strings.TrimRight(c.BaseURL, "/") + "/models"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", "Bearer "+credential.AccessToken)
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("X-XAI-Token-Auth", "xai-grok-cli")
+	request.Header.Set("x-grok-client-version", buildClientVersion)
+	request.Header.Set("x-grok-client-identifier", "grok-shell")
+	request.Header.Set("x-grok-client-mode", "headless")
+	request.Header.Set("x-authenticateresponse", "authenticate-response")
+	request.Header.Set("x-grok-agent-id", c.agentID)
+	request.Header.Set("x-grok-req-id", randomIdentifier())
+	request.Header.Set("User-Agent", "grok-shell/"+buildClientVersion+" (linux; x86_64)")
+	if credential.UserID != "" {
+		request.Header.Set("x-grok-user-id", credential.UserID)
+	}
+	return c.HTTPClient.Do(request)
+}
+
 func (c *BuildClient) Forward(ctx context.Context, credential Credential, path string, body []byte, model string) (*http.Response, Credential, error) {
 	var err error
 	if credential.AccessToken == "" || (credential.ExpiresAt != nil && credential.ExpiresAt.Before(time.Now().UTC().Add(time.Minute))) {

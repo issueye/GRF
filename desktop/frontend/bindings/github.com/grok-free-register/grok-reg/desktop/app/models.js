@@ -577,6 +577,20 @@ export class Settings {
              */
             this["api_stream_default"] = false;
         }
+        if (!("api_account_health_enabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["api_account_health_enabled"] = false;
+        }
+        if (!("api_account_health_interval_minutes" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["api_account_health_interval_minutes"] = 0;
+        }
 
         Object.assign(this, $$source);
     }

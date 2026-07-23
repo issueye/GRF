@@ -66,6 +66,10 @@ export class Account {
     "cooldown_until"?: string | null;
     "last_used_at"?: string | null;
     "observed_model": string;
+    "health_status": string;
+    "last_checked_at"?: string | null;
+    "health_latency_ms": number;
+    "health_error"?: string;
     "expires_at"?: string | null;
     "created_at": string;
     "updated_at": string;
@@ -102,6 +106,12 @@ export class Account {
         if (!("observed_model" in $$source)) {
             this["observed_model"] = "";
         }
+        if (!("health_status" in $$source)) {
+            this["health_status"] = "";
+        }
+        if (!("health_latency_ms" in $$source)) {
+            this["health_latency_ms"] = 0;
+        }
         if (!("created_at" in $$source)) {
             this["created_at"] = "0001-01-01T00:00:00.000Z";
         }
@@ -118,6 +128,43 @@ export class Account {
     static createFrom($$source: any = {}): Account {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Account($$parsedSource as Partial<Account>);
+    }
+}
+
+export class AccountHealthSummary {
+    "checked": number;
+    "healthy": number;
+    "unhealthy": number;
+    "started_at": string;
+    "completed_at": string;
+
+    /** Creates a new AccountHealthSummary instance. */
+    constructor($$source: Partial<AccountHealthSummary> = {}) {
+        if (!("checked" in $$source)) {
+            this["checked"] = 0;
+        }
+        if (!("healthy" in $$source)) {
+            this["healthy"] = 0;
+        }
+        if (!("unhealthy" in $$source)) {
+            this["unhealthy"] = 0;
+        }
+        if (!("started_at" in $$source)) {
+            this["started_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("completed_at" in $$source)) {
+            this["completed_at"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AccountHealthSummary instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AccountHealthSummary {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AccountHealthSummary($$parsedSource as Partial<AccountHealthSummary>);
     }
 }
 

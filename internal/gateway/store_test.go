@@ -33,6 +33,9 @@ func TestStoreMigratesAndUpsertsEncryptedAccount(t *testing.T) {
 	if !created || account.ID == 0 || account.Provider != ProviderBuild {
 		t.Fatalf("unexpected account: created=%v account=%+v", created, account)
 	}
+	if account.HealthStatus != HealthUnknown || account.LastCheckedAt != nil {
+		t.Fatalf("unexpected initial health: %+v", account)
+	}
 	var rawAccess, rawRefresh string
 	if err := store.db.QueryRowContext(ctx, `SELECT access_token, refresh_token FROM gateway_accounts WHERE id = ?`, account.ID).Scan(&rawAccess, &rawRefresh); err != nil {
 		t.Fatal(err)
@@ -63,6 +66,32 @@ func TestStoreMigratesAndUpsertsEncryptedAccount(t *testing.T) {
 	}
 	if len(accounts) != 1 {
 		t.Fatalf("account count = %d", len(accounts))
+	}
+}
+
+func TestStoreUpdatesAccountHealthIndependently(t *testing.T) {
+	store := openTestStore(t)
+	ctx := context.Background()
+	account, _, err := store.UpsertAccount(ctx, AccountSeed{UserID: "health-user", AccessToken: "access"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpdateAccountHealth(ctx, account.ID, false, 125*time.Millisecond, "upstream\n unavailable", false); err != nil {
+		t.Fatal(err)
+	}
+	accounts, err := store.ListAccounts(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].HealthStatus != HealthFailed || accounts[0].HealthLatency != 125 || accounts[0].HealthError != "upstream unavailable" || accounts[0].AuthStatus != AuthActive || accounts[0].LastCheckedAt == nil {
+		t.Fatalf("unexpected failed health state: %+v", accounts)
+	}
+	if err := store.UpdateAccountHealth(ctx, account.ID, true, 20*time.Millisecond, "", false); err != nil {
+		t.Fatal(err)
+	}
+	accounts, _ = store.ListAccounts(ctx)
+	if accounts[0].HealthStatus != HealthHealthy || accounts[0].HealthError != "" || accounts[0].AuthStatus != AuthActive {
+		t.Fatalf("unexpected recovered health state: %+v", accounts[0])
 	}
 }
 

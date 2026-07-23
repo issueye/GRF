@@ -19,13 +19,19 @@ export function Bootstrap(): $CancellablePromise<$models.BootstrapInfo> {
     });
 }
 
+export function CheckGatewayAccounts(): $CancellablePromise<gateway$0.AccountHealthSummary> {
+    return $Call.ByID(2244012681).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function ClearGatewayRequestLogs(): $CancellablePromise<void> {
     return $Call.ByID(1063812684);
 }
 
 export function CreateAPIKey(name: string): $CancellablePromise<$models.CreatedAPIKey> {
     return $Call.ByID(2849228272, name).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
@@ -39,7 +45,7 @@ export function DeleteGatewayAccount(id: number): $CancellablePromise<void> {
 
 export function GatewayStatus(): $CancellablePromise<gateway$0.Status> {
     return $Call.ByID(1419683181).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
@@ -49,49 +55,49 @@ export function GetAPIKeySecret(id: number): $CancellablePromise<string> {
 
 export function GetDashboard(): $CancellablePromise<$models.Dashboard> {
     return $Call.ByID(353919147).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
 export function GetSettings(): $CancellablePromise<$models.Settings> {
     return $Call.ByID(303360312).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
 export function ImportGatewayAccounts(paths: string[]): $CancellablePromise<$models.GatewayAccountImportResult> {
     return $Call.ByID(2318896960, paths).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
 }
 
 export function ListAPIKeys(): $CancellablePromise<gateway$0.APIKey[]> {
     return $Call.ByID(1193353329).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function ListGatewayAccounts(): $CancellablePromise<gateway$0.Account[]> {
     return $Call.ByID(518095).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
 export function ListGatewayModels(): $CancellablePromise<gateway$0.Model[]> {
     return $Call.ByID(3640931529).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType12($result);
     });
 }
 
 export function ListGatewayRequestLogs(limit: number): $CancellablePromise<gateway$0.RequestLog[]> {
     return $Call.ByID(1644008471, limit).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function ListRuns(limit: number): $CancellablePromise<$models.RunEntry[]> {
     return $Call.ByID(2950642485, limit).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
@@ -113,7 +119,7 @@ export function SetAPIKeyEnabled(id: number, enabled: boolean): $CancellableProm
 
 export function Start(request: $models.StartRequest): $CancellablePromise<$models.StartResult> {
     return $Call.ByID(3115171033, request).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType17($result);
     });
 }
 
@@ -139,19 +145,20 @@ export function UpdateGatewayAccount(update: $models.GatewayAccountUpdate): $Can
 
 // Private type creation functions
 const $$createType0 = $models.BootstrapInfo.createFrom;
-const $$createType1 = $models.CreatedAPIKey.createFrom;
-const $$createType2 = gateway$0.Status.createFrom;
-const $$createType3 = $models.Dashboard.createFrom;
-const $$createType4 = $models.Settings.createFrom;
-const $$createType5 = $models.GatewayAccountImportResult.createFrom;
-const $$createType6 = gateway$0.APIKey.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = gateway$0.Account.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = gateway$0.Model.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = gateway$0.RequestLog.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $models.RunEntry.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = $models.StartResult.createFrom;
+const $$createType1 = gateway$0.AccountHealthSummary.createFrom;
+const $$createType2 = $models.CreatedAPIKey.createFrom;
+const $$createType3 = gateway$0.Status.createFrom;
+const $$createType4 = $models.Dashboard.createFrom;
+const $$createType5 = $models.Settings.createFrom;
+const $$createType6 = $models.GatewayAccountImportResult.createFrom;
+const $$createType7 = gateway$0.APIKey.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = gateway$0.Account.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = gateway$0.Model.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = gateway$0.RequestLog.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $models.RunEntry.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = $models.StartResult.createFrom;
