@@ -59,28 +59,58 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
         </div>
       </section>
 
-      <div className="gateway-layout">
-        <section className="gateway-panel">
-          <div className="gateway-panel-title"><Server size={16} /><div><h2>监听配置</h2><p>服务绑定的网络接口与端口。</p></div></div>
-          <div className="listen-fields">
-            <label><span>监听地址</span><input onChange={(event) => patch('api_listen_host', event.target.value)} value={settings.api_listen_host} /></label>
-            <label><span>端口</span><input max="65535" min="1" onChange={(event) => patch('api_listen_port', Number(event.target.value))} type="number" value={settings.api_listen_port} /></label>
-          </div>
-          <label><span>上游出口代理</span><input onChange={(event) => patch('register_proxy', event.target.value)} placeholder="留空则直连" value={settings.register_proxy} /><small>与注册任务共用此出口配置。</small></label>
-			<label className="switch-row gateway-stream-default"><span><strong>默认流式输出</strong><small>仅在客户端未传 stream 时生效</small></span><input checked={settings.api_stream_default} onChange={(event) => patch('api_stream_default', event.target.checked)} type="checkbox" /></label>
-          {settings.api_enabled && publicHost ? <div className="listen-warning">当前地址可被其他设备访问，请仅向可信客户端分发 API Key。</div> : null}
-        </section>
+      <div>
+        <div className="gateway-layout">
+          <section className="gateway-panel">
+            <div className="gateway-panel-title">
+              <Server size={16} />
+              <div>
+                <h2>监听配置</h2>
+                <p>服务绑定的网络接口与端口。</p>
+                </div>
+              </div>
+            <div className="listen-fields">
+              <label>
+                <span>监听地址</span>
+                <input onChange={(event) => patch('api_listen_host', event.target.value)} value={settings.api_listen_host} />
+              </label>
+              <label>
+                <span>端口</span>
+                <input max="65535" min="1" onChange={(event) => patch('api_listen_port', Number(event.target.value))} type="number" value={settings.api_listen_port} />
+              </label>
+            </div>
+            <label>
+              <span>上游出口代理</span>
+              <input onChange={(event) => patch('register_proxy', event.target.value)} placeholder="留空则直连" value={settings.register_proxy} />
+              <small>与注册任务共用此出口配置。</small>
+            </label>
+            <label className="switch-row gateway-stream-default">
+              <span>
+                <strong>默认流式输出</strong>
+                <small>仅在客户端未传 stream 时生效</small>
+              </span>
+              <input checked={settings.api_stream_default} onChange={(event) => patch('api_stream_default', event.target.checked)} type="checkbox" />
+            </label>
+            {settings.api_enabled && publicHost ? <div className="listen-warning">当前地址可被其他设备访问，请仅向可信客户端分发 API Key。</div> : null}
+          </section>
 
-        <section className="gateway-panel">
-          <div className="gateway-panel-title"><ShieldCheck size={16} /><div><h2>鉴权与协议</h2><p>所有推理端点均强制验证 API Key。</p></div></div>
-          <div className="gateway-security"><span>密钥格式</span><code>grf_...</code><span>凭据存储</span><strong>AES-256-GCM</strong></div>
+          <section className="gateway-panel">
+            <div className="gateway-panel-title"><ShieldCheck size={16} /><div><h2>鉴权与协议</h2><p>所有推理端点均强制验证 API Key。</p></div></div>
+            <div className="gateway-security"><span>密钥格式</span><code>grf_...</code><span>凭据存储</span><strong>AES-256-GCM</strong></div>
+          </section>
+        </div>
+
+        <section className="gateway-endpoints">
+          <div className="section-title">
+            <div>
+              <h2>可用端点</h2>
+              <p>当前版本公开的兼容 API。</p>
+            </div>
+            <span>{endpoints.length} 个端点</span>
+          </div>
+          <div>{endpoints.map((endpoint) => { const [method, path] = endpoint.split(' '); return <div className="endpoint-row" key={endpoint}><span className={`method-tag method-${method.toLowerCase()}`}>{method}</span><code>{path}</code></div>; })}</div>
         </section>
       </div>
-
-      <section className="gateway-endpoints">
-        <div className="section-title"><div><h2>可用端点</h2><p>当前版本公开的兼容 API。</p></div><span>{endpoints.length} 个端点</span></div>
-        <div>{endpoints.map((endpoint) => { const [method, path] = endpoint.split(' '); return <div className="endpoint-row" key={endpoint}><span className={`method-tag method-${method.toLowerCase()}`}>{method}</span><code>{path}</code></div>; })}</div>
-      </section>
     </section>
   );
 }
