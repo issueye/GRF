@@ -1,4 +1,5 @@
-import { CircleStop, Power, Save, Server, ShieldCheck, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Check, CircleStop, Copy, Power, Save, Server, ShieldCheck, Sparkles } from 'lucide-react';
 
 const endpoints = [
   'GET /v1/models',
@@ -14,6 +15,8 @@ function formatCount(value) {
 }
 
 export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
+  const [copiedPath, setCopiedPath] = useState(null);
+
   if (!settings) {
     return <section className="page"><div className="loading-state">正在读取网关配置...</div></section>;
   }
@@ -22,6 +25,19 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
   const running = Boolean(status?.running);
   const publicHost = !['127.0.0.1', '::1', 'localhost'].includes(settings.api_listen_host);
   const configuredAddress = `${settings.api_listen_host}:${settings.api_listen_port}`;
+  const gatewayHost = running ? status.address : configuredAddress;
+  const buildEndpointUrl = (path) => `http://${gatewayHost}${path}`;
+
+  const handleCopyEndpoint = async (path) => {
+    try {
+      await navigator.clipboard?.writeText(buildEndpointUrl(path));
+      setCopiedPath(path);
+      window.setTimeout(() => setCopiedPath((current) => (current === path ? null : current)), 1500);
+    } catch {
+      setCopiedPath(null);
+    }
+  };
+
   const usage = status?.token_usage || {};
   const inputTokens = Number(usage.input_tokens) || 0;
   const outputTokens = Number(usage.output_tokens) || 0;
@@ -59,7 +75,7 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
         </div>
       </section>
 
-      <div>
+      <div className="gateway-endpoints-container">
         <div className="gateway-layout">
           <section className="gateway-panel">
             <div className="gateway-panel-title">
@@ -108,7 +124,7 @@ export function GatewayPage({ busy, settings, setSettings, status, onSave }) {
             </div>
             <span>{endpoints.length} 个端点</span>
           </div>
-          <div>{endpoints.map((endpoint) => { const [method, path] = endpoint.split(' '); return <div className="endpoint-row" key={endpoint}><span className={`method-tag method-${method.toLowerCase()}`}>{method}</span><code>{path}</code></div>; })}</div>
+          <div>{endpoints.map((endpoint) => { const [method, path] = endpoint.split(' '); const copied = copiedPath === path; return <div className="endpoint-row" key={endpoint}><span className={`method-tag method-${method.toLowerCase()}`}>{method}</span><code>{path}</code><button className={`icon-button endpoint-copy${copied ? ' is-copied' : ''}`} onClick={() => handleCopyEndpoint(path)} title={`复制完整地址 ${buildEndpointUrl(path)}`} type="button">{copied ? <Check size={14} /> : <Copy size={14} />}</button></div>; })}</div>
         </section>
       </div>
     </section>

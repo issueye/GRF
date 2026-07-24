@@ -197,7 +197,9 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .gateway-token-card strong { color: var(--text-strong); font: 600 18px/1.2 "Cascadia Code", Consolas, monospace; font-variant-numeric: tabular-nums; }
 .gateway-token-card.is-total { border-color: #bfdbfe; background: linear-gradient(180deg, #f0f7ff 0%, var(--surface-subtle) 100%); }
 .gateway-token-card.is-total strong { color: var(--info, #2563eb); }
-.gateway-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.gateway-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+.gateway-endpoints-container { margin-top: 14px; overflow-y: auto; }
 @media (max-width: 900px) {
   .gateway-token-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -213,10 +215,12 @@ input:focus, select:focus { border-color: var(--brand-action); }
 .gateway-security strong { font-size: 11px; }
 .gateway-endpoints { margin-top: 14px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .gateway-endpoints > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.endpoint-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.endpoint-row { display: grid; grid-template-columns: 58px minmax(0, 1fr) 30px; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border-bottom: 1px solid var(--border); }
 .endpoint-row:nth-child(odd) { border-right: 1px solid var(--border); }
 .endpoint-row:last-child { border-bottom: 0; }
 .endpoint-row code { overflow: hidden; font: 11px "Cascadia Code", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.endpoint-copy { width: 30px; height: 30px; color: var(--text-muted); }
+.endpoint-copy.is-copied { color: var(--success); }
 .method-tag { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 20px; border-radius: 4px; font-size: 9px; font-weight: 800; }
 .method-get { color: var(--success); background: var(--success-soft); }
 .method-post { color: var(--info); background: #eef4ff; }
