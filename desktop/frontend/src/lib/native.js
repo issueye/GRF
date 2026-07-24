@@ -199,6 +199,24 @@ export async function importGatewayAccounts() {
   return invoke('ImportGatewayAccounts', paths);
 }
 
+export async function exportGatewayAccounts() {
+  const empty = { total_accounts: 0, exported_accounts: 0, failed_accounts: 0, failures: [] };
+  if (!hasNativeRuntime()) {
+    return empty;
+  }
+  const path = await Dialogs.SaveFile({
+    Title: '导出 CPA 账号',
+    Message: '选择保存位置，账号将打包为 ZIP',
+    ButtonText: '导出',
+    Filename: 'grf-accounts.zip',
+    Filters: [{ DisplayName: 'ZIP', Pattern: '*.zip' }],
+  });
+  if (!path) {
+    return empty;
+  }
+  return invoke('ExportGatewayAccounts', path);
+}
+
 export async function updateGatewayAccount(account) {
   if (hasNativeRuntime()) return invoke('UpdateGatewayAccount', account);
   const index = demoGateway.accounts.findIndex((item) => item.id === account.id);

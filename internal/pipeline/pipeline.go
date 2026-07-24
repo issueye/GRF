@@ -21,6 +21,7 @@ import (
 	"github.com/grok-free-register/grok-reg/internal/inventory"
 	"github.com/grok-free-register/grok-reg/internal/logx"
 	"github.com/grok-free-register/grok-reg/internal/oauth"
+	"github.com/grok-free-register/grok-reg/internal/onboarding"
 	"github.com/grok-free-register/grok-reg/internal/protocol"
 	"github.com/grok-free-register/grok-reg/internal/state"
 	"github.com/grok-free-register/grok-reg/internal/turnstile"
@@ -132,6 +133,31 @@ func (e *Engine) tryComplete() (int64, bool) {
 			return d + 1, true
 		}
 	}
+}
+
+// cfClearance returns the Cloudflare clearance cookie from the shared clearance
+// bundle, if any (empty when clearance is disabled or has no cf_clearance).
+func (e *Engine) cfClearance() string {
+	if e.cm == nil {
+		return ""
+	}
+	for _, c := range e.cm.Get().Cookies {
+		if c.Name == "cf_clearance" {
+			return c.Value
+		}
+	}
+	return ""
+}
+
+// userAgent returns the clearance-reported User-Agent, falling back to the
+// protocol default when clearance is unavailable.
+func (e *Engine) userAgent() string {
+	if e.cm != nil {
+		if ua := e.cm.UserAgent(); ua != "" {
+			return ua
+		}
+	}
+	return protocol.DefaultUserAgent
 }
 
 func Run(ctx context.Context, opt Options) error {
@@ -674,6 +700,19 @@ func (e *Engine) oauthWorker(ctx context.Context, id int) {
 			continue
 		}
 		e.oaN.Add(1)
+		// Onboarding (TOS / birth date / NSFW) is best-effort: a failure does not
+		// demote a successfully registered account, matching probe semantics.
+		if e.opt.Cfg.OnboardingEnabled {
+			onbRes, onbErr := onboarding.Run(ctx, job.SSO, e.cfClearance(), onboarding.Options{
+				Proxy:     e.opt.Cfg.RegisterProxy,
+				UserAgent: e.userAgent(),
+			}, log)
+			if onbErr != nil {
+				log.Warnf("onboarding 部分失败 %s: %v (TOS:%v 生日:%v NSFW:%v)", job.Email, onbErr, onbRes.TOS, onbRes.BirthDate, onbRes.NSFW)
+			} else {
+				log.OKf("onboarding 完成 %s", job.Email)
+			}
+		}
 		doc := cpa.FromCredential(cred, job.Email)
 		_ = e.opt.Store.Set(func(s *state.Snapshot) {
 			s.Phase = state.PhaseProbe

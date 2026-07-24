@@ -1,7 +1,10 @@
 package app
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -15,9 +18,11 @@ import (
 
 	"github.com/grok-free-register/grok-reg/internal/browser"
 	"github.com/grok-free-register/grok-reg/internal/config"
+	"github.com/grok-free-register/grok-reg/internal/cpa"
 	"github.com/grok-free-register/grok-reg/internal/daemon"
 	"github.com/grok-free-register/grok-reg/internal/gateway"
 	"github.com/grok-free-register/grok-reg/internal/home"
+	"github.com/grok-free-register/grok-reg/internal/oauth"
 	"github.com/grok-free-register/grok-reg/internal/state"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -110,6 +115,19 @@ type GatewayAccountImportResult struct {
 	FailedFiles      int                           `json:"failed_files"`
 	ImportedAccounts int                           `json:"imported_accounts"`
 	Failures         []GatewayAccountImportFailure `json:"failures"`
+}
+
+type GatewayAccountExportFailure struct {
+	Account string `json:"account"`
+	Error   string `json:"error"`
+}
+
+type GatewayAccountExportResult struct {
+	TotalAccounts    int                            `json:"total_accounts"`
+	ExportedAccounts int                            `json:"exported_accounts"`
+	FailedAccounts   int                            `json:"failed_accounts"`
+	Path             string                         `json:"path,omitempty"`
+	Failures         []GatewayAccountExportFailure  `json:"failures"`
 }
 
 type CreatedAPIKey struct {
@@ -483,6 +501,17 @@ func (a *App) ImportGatewayAccounts(paths []string) (GatewayAccountImportResult,
 	return importGatewayAccountFiles(context.Background(), store, paths), nil
 }
 
+// ExportGatewayAccounts exports every gateway account as a re-importable CPA
+// JSON document and bundles them into a zip at destPath. Credentials are stored
+// encrypted at rest; only the store can decrypt them, so export must run here.
+func (a *App) ExportGatewayAccounts(destPath string) (GatewayAccountExportResult, error) {
+	store, err := a.gatewayStoreReady()
+	if err != nil {
+		return GatewayAccountExportResult{}, err
+	}
+	return exportGatewayAccountFiles(context.Background(), store, destPath)
+}
+
 func (a *App) CheckGatewayAccounts() (gateway.AccountHealthSummary, error) {
 	a.mu.Lock()
 	a.openGatewayLocked()
@@ -551,6 +580,102 @@ func importGatewayAccountFiles(ctx context.Context, store *gateway.Store, paths 
 		result.ImportedAccounts += len(accounts)
 	}
 	return result
+}
+
+func exportGatewayAccountFiles(ctx context.Context, store *gateway.Store, destPath string) (GatewayAccountExportResult, error) {
+	result := GatewayAccountExportResult{Failures: make([]GatewayAccountExportFailure, 0)}
+	destPath = strings.TrimSpace(destPath)
+	if destPath == "" {
+		return result, fmt.Errorf("未选择导出路径")
+	}
+	if !strings.EqualFold(filepath.Ext(destPath), ".zip") {
+		destPath += ".zip"
+	}
+	absPath, err := filepath.Abs(destPath)
+	if err != nil {
+		return result, fmt.Errorf("解析导出路径: %w", err)
+	}
+
+	accounts, err := store.ListAccounts(ctx)
+	if err != nil {
+		return result, fmt.Errorf("读取账号列表: %w", err)
+	}
+	result.TotalAccounts = len(accounts)
+
+	secret := cpa.DefaultSecret()
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+	usedNames := make(map[string]int, len(accounts))
+
+	for _, account := range accounts {
+		label := account.Email
+		if label == "" {
+			label = account.UserID
+		}
+		if label == "" {
+			label = fmt.Sprintf("id-%d", account.ID)
+		}
+
+		credential, err := store.GetCredential(ctx, account.ID)
+		if err != nil {
+			result.FailedAccounts++
+			result.Failures = append(result.Failures, GatewayAccountExportFailure{Account: label, Error: err.Error()})
+			continue
+		}
+
+		var expired string
+		if credential.ExpiresAt != nil {
+			expired = credential.ExpiresAt.UTC().Format(time.RFC3339Nano)
+		}
+		doc := cpa.FromCredential(oauth.Credential{
+			AccessToken:  credential.AccessToken,
+			RefreshToken: credential.RefreshToken,
+			ExpiresAt:    expired,
+			Subject:      credential.UserID,
+			Email:        credential.Email,
+		}, credential.Email)
+
+		name := cpa.Filename(doc, secret)
+		if existing, ok := usedNames[name]; ok {
+			usedNames[name] = existing + 1
+			ext := filepath.Ext(name)
+			name = fmt.Sprintf("%s-%d%s", strings.TrimSuffix(name, ext), usedNames[name], ext)
+		} else {
+			usedNames[name] = 1
+		}
+
+		entry, err := zipWriter.Create(name)
+		if err != nil {
+			result.FailedAccounts++
+			result.Failures = append(result.Failures, GatewayAccountExportFailure{Account: label, Error: err.Error()})
+			continue
+		}
+		raw, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			result.FailedAccounts++
+			result.Failures = append(result.Failures, GatewayAccountExportFailure{Account: label, Error: err.Error()})
+			continue
+		}
+		raw = append(raw, '\n')
+		if _, err := entry.Write(raw); err != nil {
+			result.FailedAccounts++
+			result.Failures = append(result.Failures, GatewayAccountExportFailure{Account: label, Error: err.Error()})
+			continue
+		}
+		result.ExportedAccounts++
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		return result, fmt.Errorf("生成压缩包失败: %w", err)
+	}
+	if result.ExportedAccounts == 0 {
+		return result, fmt.Errorf("没有可导出的账号")
+	}
+	if err := os.WriteFile(absPath, buf.Bytes(), 0o600); err != nil {
+		return result, fmt.Errorf("写入压缩包: %w", err)
+	}
+	result.Path = absPath
+	return result, nil
 }
 
 func (a *App) UpdateGatewayAccount(update GatewayAccountUpdate) error {

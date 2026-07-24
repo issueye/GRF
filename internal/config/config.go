@@ -54,6 +54,7 @@ type Config struct {
 	OAuthMinIntervalSec float64
 	OAuthRetrySec       float64
 	ProbeEnabled        bool
+	OnboardingEnabled   bool
 
 	HTTPProxy  string
 	HTTPSProxy string
@@ -99,6 +100,7 @@ func Defaults() Config {
 		OAuthMinIntervalSec:             10,
 		OAuthRetrySec:                   60,
 		ProbeEnabled:                    true,
+		OnboardingEnabled:               true,
 		HTTPProxy:                       "http://127.0.0.1:40080",
 		HTTPSProxy:                      "http://127.0.0.1:40080",
 		NoProxy:                         "127.0.0.1,localhost",
@@ -164,6 +166,7 @@ func Save(path string, cfg Config) error {
 	b.WriteString(fmt.Sprintf("HTTP_PROXY=%s\n", cfg.HTTPProxy))
 	b.WriteString(fmt.Sprintf("NO_PROXY=%s\n", cfg.NoProxy))
 	b.WriteString(fmt.Sprintf("PROBE_ENABLED=%s\n", bool01(cfg.ProbeEnabled)))
+	b.WriteString(fmt.Sprintf("ONBOARDING_ENABLED=%s\n", bool01(cfg.OnboardingEnabled)))
 	b.WriteString(fmt.Sprintf("PHYSICAL_CAP=%d\n", cfg.PhysicalCap))
 	b.WriteString(fmt.Sprintf("CPA_UPLOAD_ENABLED=%s\n", bool01(cfg.CPAUploadEnabled)))
 	b.WriteString(fmt.Sprintf("CPA_MANAGEMENT_BASE=%s\n", cfg.CPAManagementBase))
@@ -365,6 +368,9 @@ func applyMap(cfg *Config, env map[string]string) {
 	}
 	if v, ok := env["PROBE_ENABLED"]; ok {
 		cfg.ProbeEnabled = truthy(v)
+	}
+	if v, ok := env["ONBOARDING_ENABLED"]; ok {
+		cfg.OnboardingEnabled = truthy(v)
 	}
 	if v, ok := env["PHYSICAL_CAP"]; ok {
 		if n, err := strconv.Atoi(v); err == nil {

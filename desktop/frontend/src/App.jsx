@@ -13,7 +13,7 @@ import { StatusBar } from './components/StatusBar.jsx';
 import { TopBar } from './components/TopBar.jsx';
 import {
 	bootstrap, checkGatewayAccounts, clearGatewayRequestLogs, createAPIKey, deleteAPIKey, deleteGatewayAccount,
-	gatewayStatus, getAPIKeySecret,
+	exportGatewayAccounts, gatewayStatus, getAPIKeySecret,
 	getDashboard, getSettings, importGatewayAccounts, listAPIKeys, listGatewayAccounts, listGatewayModels, listGatewayRequestLogs,
   listRuns, openConfig, openPath, saveSettings, setAPIKeyEnabled,
   startRegistration, stopRegistration, tailLog, updateGatewayAccount,
@@ -167,6 +167,22 @@ export function App() {
     }
   }
 
+  async function handleExportAccounts() {
+    setBusy(true);
+    try {
+      const result = await exportGatewayAccounts();
+      if (!result.total_accounts) return result;
+      setNotice(result.failed_accounts ? `导出完成：${result.exported_accounts} 个账号，${result.failed_accounts} 个失败` : `已导出 ${result.exported_accounts} 个账号`);
+      setError('');
+      return result;
+    } catch (err) {
+      setError(err?.message || String(err));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleCheckAccounts() {
     setBusy(true);
     try {
@@ -219,7 +235,7 @@ export function App() {
           {view === 'runs' ? <RunsPage onOpenPath={openPath} runs={runs} /> : null}
           {view === 'gateway' ? <GatewayPage busy={busy} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} status={gateway.status} /> : null}
 			{view === 'gateway-logs' ? <GatewayLogsPage busy={busy} logs={gatewayLogs} onClear={handleClearGatewayLogs} onRefresh={refreshGatewayLogs} /> : null}
-          {view === 'accounts' ? <AccountsPage accounts={gateway.accounts} busy={busy} onCheck={handleCheckAccounts} onDelete={(id) => gatewayAction(() => deleteGatewayAccount(id), '账号已删除')} onImport={handleImportAccounts} onRefresh={refreshGateway} onSaveHealth={() => handleSaveSettings('账号测活设置已保存')} onUpdate={(account) => gatewayAction(() => updateGatewayAccount(account), '账号设置已保存')} setSettings={setSettings} settings={settings} /> : null}
+          {view === 'accounts' ? <AccountsPage accounts={gateway.accounts} busy={busy} onCheck={handleCheckAccounts} onDelete={(id) => gatewayAction(() => deleteGatewayAccount(id), '账号已删除')} onExport={handleExportAccounts} onImport={handleImportAccounts} onRefresh={refreshGateway} onSaveHealth={() => handleSaveSettings('账号测活设置已保存')} onUpdate={(account) => gatewayAction(() => updateGatewayAccount(account), '账号设置已保存')} setSettings={setSettings} settings={settings} /> : null}
           {view === 'models' ? <ModelsPage models={gateway.models} /> : null}
 			{view === 'keys' ? <APIKeysPage apiKeys={gateway.keys} busy={busy} onCopy={handleCopyKey} onCreate={handleCreateKey} onDelete={(id) => gatewayAction(() => deleteAPIKey(id), 'API Key 已删除')} onToggle={(id, enabled) => gatewayAction(() => setAPIKeyEnabled(id, enabled), 'API Key 状态已更新')} /> : null}
           {view === 'settings' ? <SettingsPage busy={busy} configPath={info?.config_path || ''} onOpenConfig={openConfig} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} /> : null}

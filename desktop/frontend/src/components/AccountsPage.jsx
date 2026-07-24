@@ -1,13 +1,14 @@
 import {
-  Activity, ChevronLeft, ChevronRight, FileUp, LayoutGrid, RefreshCw,
+  Activity, ChevronLeft, ChevronRight, Download, FileUp, LayoutGrid, RefreshCw,
   Save, Table2, Timer, Trash2, UserRound, Users, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const pageSizes = [12, 24, 48];
 
-export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRefresh, onSaveHealth, onUpdate, setSettings, settings }) {
+export function AccountsPage({ accounts, busy, onCheck, onDelete, onExport, onImport, onRefresh, onSaveHealth, onUpdate, setSettings, settings }) {
   const [importResult, setImportResult] = useState(null);
+  const [exportResult, setExportResult] = useState(null);
   const [checkResult, setCheckResult] = useState(null);
   const [viewMode, setViewMode] = useState(() => window.localStorage.getItem('grf.accounts.view') === 'cards' ? 'cards' : 'table');
   const [page, setPage] = useState(1);
@@ -22,6 +23,10 @@ export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRe
     const result = await onImport();
     if (result?.selected_files) setImportResult(result);
   };
+  const runExport = async () => {
+    const result = await onExport();
+    if (result?.total_accounts) setExportResult(result);
+  };
   const patchHealth = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
   const runCheck = async () => {
     const result = await onCheck();
@@ -34,7 +39,7 @@ export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRe
 
   return (
     <section className="page" aria-labelledby="accounts-title">
-      <div className="page-heading"><h1 id="accounts-title">账号</h1><div className="heading-actions"><button className="button button-primary" disabled={busy} onClick={runImport} type="button"><FileUp size={14} /> 导入 CPA</button><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button></div></div>
+      <div className="page-heading"><h1 id="accounts-title">账号</h1><div className="heading-actions"><button className="button button-primary" disabled={busy} onClick={runImport} type="button"><FileUp size={14} /> 导入 CPA</button><button className="button button-secondary" disabled={busy || !accounts.length} onClick={runExport} type="button"><Download size={14} /> 导出 CPA</button><button className="button button-secondary" disabled={busy} onClick={onRefresh} type="button"><RefreshCw size={14} /> 刷新</button></div></div>
       <form className="account-health-panel" onSubmit={(event) => { event.preventDefault(); onSaveHealth(); }}>
         <div className="account-health-title"><Timer size={17} /><span><strong>定时测活</strong><small>通过 Build 模型目录检查已启用账号，不消耗对话额度</small></span></div>
         <label className="switch-row account-health-switch">
@@ -45,6 +50,7 @@ export function AccountsPage({ accounts, busy, onCheck, onDelete, onImport, onRe
         <button className="button button-secondary" disabled={busy || !accounts.length} onClick={runCheck} type="button"><Activity size={14} /> 立即测活</button>
       </form>
       {importResult ? <div className={importResult.failed_files ? 'import-summary has-errors' : 'import-summary'}><FileUp size={16} /><div><strong>已导入 {importResult.imported_accounts} 个账号</strong><span>{importResult.successful_files} 个文件成功{importResult.failed_files ? `，${importResult.failed_files} 个文件失败` : ''}</span>{importResult.failures?.length ? <ul>{importResult.failures.slice(0, 5).map((failure, index) => <li key={`${failure.file}-${index}`}><b>{failure.file}</b><span>{failure.error}</span></li>)}</ul> : null}</div><button className="icon-button" onClick={() => setImportResult(null)} title="关闭导入结果" type="button"><X size={14} /></button></div> : null}
+      {exportResult ? <div className={exportResult.failed_accounts ? 'import-summary has-errors' : 'import-summary'}><Download size={16} /><div><strong>已导出 {exportResult.exported_accounts} 个账号</strong><span>{exportResult.path ? `${exportResult.path}` : ''}{exportResult.failed_accounts ? `，${exportResult.failed_accounts} 个账号失败` : ''}</span>{exportResult.failures?.length ? <ul>{exportResult.failures.slice(0, 5).map((failure, index) => <li key={`${failure.account}-${index}`}><b>{failure.account}</b><span>{failure.error}</span></li>)}</ul> : null}</div><button className="icon-button" onClick={() => setExportResult(null)} title="关闭导出结果" type="button"><X size={14} /></button></div> : null}
       {checkResult ? <div className={checkResult.unhealthy ? 'health-summary has-errors' : 'health-summary'}><Activity size={16} /><span><strong>测活完成</strong><small>{checkResult.checked} 个账号：{checkResult.healthy} 个正常，{checkResult.unhealthy} 个异常</small></span><button className="icon-button" onClick={() => setCheckResult(null)} title="关闭测活结果" type="button"><X size={14} /></button></div> : null}
 
       <div className="accounts-browser-toolbar">

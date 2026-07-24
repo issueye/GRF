@@ -66,11 +66,24 @@ export function DeleteGatewayAccount(id) {
 }
 
 /**
+ * ExportGatewayAccounts exports every gateway account as a re-importable CPA
+ * JSON document and bundles them into a zip at destPath. Credentials are stored
+ * encrypted at rest; only the store can decrypt them, so export must run here.
+ * @param {string} destPath
+ * @returns {$CancellablePromise<$models.GatewayAccountExportResult>}
+ */
+export function ExportGatewayAccounts(destPath) {
+    return $Call.ByID(2432170069, destPath).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType3($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<gateway$0.Status>}
  */
 export function GatewayStatus() {
     return $Call.ByID(1419683181).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType3($result);
+        return $$createType4($result);
     }));
 }
 
@@ -87,7 +100,7 @@ export function GetAPIKeySecret(id) {
  */
 export function GetDashboard() {
     return $Call.ByID(353919147).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType4($result);
+        return $$createType5($result);
     }));
 }
 
@@ -96,7 +109,7 @@ export function GetDashboard() {
  */
 export function GetSettings() {
     return $Call.ByID(303360312).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType5($result);
+        return $$createType6($result);
     }));
 }
 
@@ -106,7 +119,7 @@ export function GetSettings() {
  */
 export function ImportGatewayAccounts(paths) {
     return $Call.ByID(2318896960, paths).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType6($result);
+        return $$createType7($result);
     }));
 }
 
@@ -115,7 +128,7 @@ export function ImportGatewayAccounts(paths) {
  */
 export function ListAPIKeys() {
     return $Call.ByID(1193353329).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType9($result);
     }));
 }
 
@@ -124,7 +137,7 @@ export function ListAPIKeys() {
  */
 export function ListGatewayAccounts() {
     return $Call.ByID(518095).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType11($result);
     }));
 }
 
@@ -133,7 +146,7 @@ export function ListGatewayAccounts() {
  */
 export function ListGatewayModels() {
     return $Call.ByID(3640931529).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType13($result);
     }));
 }
 
@@ -143,7 +156,7 @@ export function ListGatewayModels() {
  */
 export function ListGatewayRequestLogs(limit) {
     return $Call.ByID(1644008471, limit).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType14($result);
+        return $$createType15($result);
     }));
 }
 
@@ -153,7 +166,7 @@ export function ListGatewayRequestLogs(limit) {
  */
 export function ListRuns(limit) {
     return $Call.ByID(2950642485, limit).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType16($result);
+        return $$createType17($result);
     }));
 }
 
@@ -195,7 +208,7 @@ export function SetAPIKeyEnabled(id, enabled) {
  */
 export function Start(request) {
     return $Call.ByID(3115171033, request).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType17($result);
+        return $$createType18($result);
     }));
 }
 
@@ -240,18 +253,19 @@ export function UpdateGatewayAccount(update) {
 const $$createType0 = $models.BootstrapInfo.createFrom;
 const $$createType1 = gateway$0.AccountHealthSummary.createFrom;
 const $$createType2 = $models.CreatedAPIKey.createFrom;
-const $$createType3 = gateway$0.Status.createFrom;
-const $$createType4 = $models.Dashboard.createFrom;
-const $$createType5 = $models.Settings.createFrom;
-const $$createType6 = $models.GatewayAccountImportResult.createFrom;
-const $$createType7 = gateway$0.APIKey.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = gateway$0.Account.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = gateway$0.Model.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = gateway$0.RequestLog.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $models.RunEntry.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = $models.StartResult.createFrom;
+const $$createType3 = $models.GatewayAccountExportResult.createFrom;
+const $$createType4 = gateway$0.Status.createFrom;
+const $$createType5 = $models.Dashboard.createFrom;
+const $$createType6 = $models.Settings.createFrom;
+const $$createType7 = $models.GatewayAccountImportResult.createFrom;
+const $$createType8 = gateway$0.APIKey.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = gateway$0.Account.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = gateway$0.Model.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = gateway$0.RequestLog.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = $models.RunEntry.createFrom;
+const $$createType17 = $Create.Array($$createType16);
+const $$createType18 = $models.StartResult.createFrom;
