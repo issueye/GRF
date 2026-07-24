@@ -24,12 +24,14 @@ import (
 )
 
 const (
-	SiteURL              = "https://accounts.x.ai"
-	ConnectCreate        = SiteURL + "/auth_mgmt.AuthManagement/CreateEmailValidationCode"
-	ConnectVerify        = SiteURL + "/auth_mgmt.AuthManagement/VerifyEmailValidationCode"
-	SignupURLGrok        = SiteURL + "/sign-up?redirect=grok-com"
-	DefaultUserAgent     = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+	SiteURL          = "https://accounts.x.ai"
+	ConnectVerify    = SiteURL + "/auth_mgmt.AuthManagement/VerifyEmailValidationCode"
+	SignupURLGrok    = SiteURL + "/sign-up?redirect=grok-com"
+	DefaultUserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 )
+
+// ConnectCreate is a var so tests can redirect it at a httptest.Server.
+var ConnectCreate = SiteURL + "/auth_mgmt.AuthManagement/CreateEmailValidationCode"
 
 var (
 	siteKeyRe  = regexp.MustCompile(`0x4AAAAAAA[a-zA-Z0-9_-]+`)
@@ -185,8 +187,14 @@ func (c *Client) fetchJS(path string) (string, error) {
 	return readBody(resp)
 }
 
-func (c *Client) CreateEmailCode(email string) error {
+// CreateEmailCode requests a validation code be sent to email. castleToken is
+// the Castle request token placed in protobuf field 3 (empty to skip, which
+// lowers account trust and tends to trigger OAuth invalid_grant downstream).
+func (c *Client) CreateEmailCode(email, castleToken string) error {
 	inner := pbStr(1, email)
+	if castleToken != "" {
+		inner = append(inner, pbStr(3, castleToken)...)
+	}
 	frame := grpcWebFrame(inner)
 	req, err := http.NewRequest(http.MethodPost, ConnectCreate, bytes.NewReader(frame))
 	if err != nil {
@@ -598,7 +606,7 @@ var familyNames = []string{
 //	[{ emailValidationCode, createUserAndSessionRequest, turnstileToken,
 //	   conversionId, castleRequestToken },
 //	 { client:"$T", meta:"$undefined", mutationKey:"$undefined" }]
-func BuildSignupBody(email, password, code, turnstileToken string) []byte {
+func BuildSignupBody(email, password, code, turnstileToken, castleToken string) []byte {
 	given := givenNames[mrand.Intn(len(givenNames))]
 	family := familyNames[mrand.Intn(len(familyNames))]
 	payload := []any{
@@ -613,7 +621,7 @@ func BuildSignupBody(email, password, code, turnstileToken string) []byte {
 			},
 			"turnstileToken":     turnstileToken,
 			"conversionId":       randomUUID(),
-			"castleRequestToken": "",
+			"castleRequestToken": castleToken,
 		},
 		map[string]any{
 			"client":      "$T",

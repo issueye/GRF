@@ -9,6 +9,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as gateway$0 from "../../internal/gateway/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as manualoauth$0 from "../../internal/manualoauth/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -161,12 +164,21 @@ export function ListGatewayRequestLogs(limit) {
 }
 
 /**
+ * @returns {$CancellablePromise<manualoauth$0.PublicTask[]>}
+ */
+export function ListManualOAuthTasks() {
+    return $Call.ByID(2595549062).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType17($result);
+    }));
+}
+
+/**
  * @param {number} limit
  * @returns {$CancellablePromise<$models.RunEntry[]>}
  */
 export function ListRuns(limit) {
     return $Call.ByID(2950642485, limit).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType17($result);
+        return $$createType19($result);
     }));
 }
 
@@ -208,7 +220,7 @@ export function SetAPIKeyEnabled(id, enabled) {
  */
 export function Start(request) {
     return $Call.ByID(3115171033, request).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType18($result);
+        return $$createType20($result);
     }));
 }
 
@@ -217,6 +229,16 @@ export function Start(request) {
  */
 export function StartGateway() {
     return $Call.ByID(559468485);
+}
+
+/**
+ * @param {string} taskID
+ * @returns {$CancellablePromise<manualoauth$0.PublicTask>}
+ */
+export function StartManualOAuth(taskID) {
+    return $Call.ByID(1870308934, taskID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType16($result);
+    }));
 }
 
 /**
@@ -266,6 +288,8 @@ const $$createType12 = gateway$0.Model.createFrom;
 const $$createType13 = $Create.Array($$createType12);
 const $$createType14 = gateway$0.RequestLog.createFrom;
 const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = $models.RunEntry.createFrom;
+const $$createType16 = manualoauth$0.PublicTask.createFrom;
 const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = $models.StartResult.createFrom;
+const $$createType18 = $models.RunEntry.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $models.StartResult.createFrom;

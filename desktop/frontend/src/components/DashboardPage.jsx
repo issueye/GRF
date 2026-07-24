@@ -1,4 +1,5 @@
-import { ArrowRight, CircleCheck, FolderOpen, Gauge, Octagon, Play, Square } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Check, CircleCheck, Copy, ExternalLink, FolderOpen, Gauge, LoaderCircle, Octagon, Play, RotateCw, ShieldCheck, Square } from 'lucide-react';
 
 const stages = [
   { id: 'clearance', label: '网络预热' },
@@ -32,7 +33,7 @@ function Metric({ label, value, note, tone = 'neutral' }) {
   );
 }
 
-export function DashboardPage({ dashboard, target, threads, setTarget, setThreads, busy, onStart, onStop, onOpenOutput, log }) {
+export function DashboardPage({ dashboard, target, threads, setTarget, setThreads, busy, onStart, onStop, onOpenOutput, log, oauthTasks = [], onManualOAuth }) {
   const progress = dashboard.target > 0 ? Math.min(100, Math.round((dashboard.done / dashboard.target) * 100)) : 0;
   const current = phaseIndex(dashboard);
   return (
@@ -95,11 +96,59 @@ export function DashboardPage({ dashboard, target, threads, setTarget, setThread
         </div>
       </section>
 
+      {oauthTasks.length ? <ManualOAuthQueue busy={busy} onAuthorize={onManualOAuth} tasks={oauthTasks} /> : null}
+
       <section className="section-block log-preview">
         <div className="section-title"><div><h2>最近活动</h2><p>最新日志会在任务运行期间自动刷新。</p></div>{dashboard.error ? <span className="danger-label"><Octagon size={13} /> 需要处理</span> : null}</div>
         {dashboard.error ? <div className="inline-error" role="alert">{dashboard.error}</div> : null}
         <pre>{log || '暂无运行日志。点击“开始运行”后，关键事件会显示在这里。'}</pre>
       </section>
+    </section>
+  );
+}
+
+function ManualOAuthQueue({ busy, onAuthorize, tasks }) {
+  const active = tasks.some((task) => task.status === 'authorizing');
+  const [copiedID, setCopiedID] = useState('');
+
+  async function copyPassword(task) {
+    if (!task.password || !navigator.clipboard?.writeText) return;
+    await navigator.clipboard.writeText(task.password);
+    setCopiedID(task.id);
+    window.setTimeout(() => setCopiedID((current) => current === task.id ? '' : current), 1600);
+  }
+
+  return (
+    <section className="section-block manual-oauth-block">
+      <div className="section-title">
+        <div><h2>待人工授权</h2><p>完成 xAI 页面中的登录和设备确认后，凭据会自动写入。</p></div>
+        <span>{tasks.length} 个账号</span>
+      </div>
+      <div className="manual-oauth-list">
+        {tasks.map((task) => {
+          const authorizing = task.status === 'authorizing';
+          const failed = task.status === 'failed';
+          return (
+            <div className={`manual-oauth-row ${failed ? 'is-failed' : ''}`} key={task.id}>
+              <span className="manual-oauth-icon">{authorizing ? <LoaderCircle className="spin" size={16} /> : <ShieldCheck size={16} />}</span>
+              <div className="manual-oauth-account">
+                <strong>{task.email}</strong>
+                <span className="manual-oauth-password">
+                  <span>密码</span><code>{task.password || '未生成'}</code>
+                  <button className={`manual-oauth-copy${copiedID === task.id ? ' is-copied' : ''}`} disabled={!task.password} onClick={() => copyPassword(task)} title={copiedID === task.id ? '密码已复制' : '复制密码'} type="button">
+                    {copiedID === task.id ? <Check size={12} /> : <Copy size={12} />}
+                  </button>
+                </span>
+                <small>{failed ? task.error : authorizing ? '请在 Chrome 窗口中完成验证' : '账号注册成功，等待授权'}</small>
+              </div>
+              <code className="manual-oauth-device-code">{task.user_code || 'DEVICE FLOW'}</code>
+              <button className={failed ? 'button button-secondary' : 'button button-primary'} disabled={busy || authorizing || (active && !authorizing)} onClick={() => onAuthorize(task.id)} type="button">
+                {failed ? <RotateCw size={14} /> : <ExternalLink size={14} />}{failed ? '重新验证' : authorizing ? '验证中' : '开始验证'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

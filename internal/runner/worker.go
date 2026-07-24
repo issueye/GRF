@@ -17,7 +17,7 @@ import (
 // RunWorker executes the detached registration worker. It is shared by the
 // CLI and the Wails desktop binary so either executable can re-exec itself.
 func RunWorker(args []string) error {
-	target, threads, runID := parseWorkerArgs(args)
+	target, threads, runID, manualOAuth := parseWorkerArgs(args)
 	var err error
 	target, err = config.ClampTarget(target)
 	if err != nil {
@@ -93,6 +93,7 @@ func RunWorker(args []string) error {
 
 	err = pipeline.Run(context.Background(), pipeline.Options{
 		Cfg: cfg, Paths: p, Run: run, Target: target, Log: log, Store: st, GatewaySink: gatewaySink,
+		ManualOAuth: manualOAuth,
 	})
 	if err != nil {
 		_ = st.Set(func(s *state.Snapshot) {
@@ -107,7 +108,7 @@ func RunWorker(args []string) error {
 	return nil
 }
 
-func parseWorkerArgs(args []string) (target, threads int, runID string) {
+func parseWorkerArgs(args []string) (target, threads int, runID string, manualOAuth bool) {
 	target, threads = 10, 2
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -130,7 +131,9 @@ func parseWorkerArgs(args []string) (target, threads int, runID string) {
 				runID = args[i+1]
 				i++
 			}
+		case "--manual-oauth":
+			manualOAuth = true
 		}
 	}
-	return target, threads, runID
+	return target, threads, runID, manualOAuth
 }

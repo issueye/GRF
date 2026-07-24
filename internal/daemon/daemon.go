@@ -79,7 +79,7 @@ func TryLock(lockPath string) (func(), error) {
 
 // StartBackground re-execs self with --worker and returns child PID.
 // threads is concurrent mint/register workers (1–8).
-func StartBackground(target, threads int, runID string) (int, error) {
+func StartBackground(target, threads int, runID string, manualOAuth bool) (int, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return 0, err
@@ -94,6 +94,9 @@ func StartBackground(target, threads int, runID string) (int, error) {
 	}
 	if runID != "" {
 		args = append(args, "--run-id", runID)
+	}
+	if manualOAuth {
+		args = append(args, "--manual-oauth")
 	}
 	return platformStartBackground(exe, args, os.Environ())
 }

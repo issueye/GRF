@@ -37,8 +37,18 @@ func FindChrome() string {
 			return matches[len(matches)-1]
 		}
 	}
+	return FindSystemChrome()
+}
 
-	// 2) System browsers
+// FindSystemChrome returns an installed desktop Chrome/Chromium executable.
+// Unlike FindChrome, it never selects the bundled stealth browser profile.
+func FindSystemChrome() string {
+	if p := strings.TrimSpace(os.Getenv("CHROME_PATH")); p != "" {
+		if fileExists(p) {
+			return p
+		}
+	}
+
 	var candidates []string
 	switch runtime.GOOS {
 	case "darwin":
@@ -63,6 +73,9 @@ func FindChrome() string {
 		candidates = []string{
 			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
 			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+		}
+		if localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA")); localAppData != "" {
+			candidates = append(candidates, filepath.Join(localAppData, "Google", "Chrome", "Application", "chrome.exe"))
 		}
 	}
 	for _, p := range candidates {

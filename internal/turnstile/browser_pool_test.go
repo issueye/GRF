@@ -34,6 +34,11 @@ func (w *fakePoolWorker) Solve(ctx context.Context, _, _ string) (string, error)
 	return "test-token-long-enough", nil
 }
 
+func (w *fakePoolWorker) SolveFull(ctx context.Context, sk, u string) (SolveResult, error) {
+	tok, err := w.Solve(ctx, sk, u)
+	return SolveResult{Token: tok}, err
+}
+
 func (w *fakePoolWorker) Close() { w.closed.Add(1) }
 
 func TestNewBrowserPoolClampsWorkers(t *testing.T) {

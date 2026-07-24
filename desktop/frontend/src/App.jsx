@@ -15,8 +15,8 @@ import {
 	bootstrap, checkGatewayAccounts, clearGatewayRequestLogs, createAPIKey, deleteAPIKey, deleteGatewayAccount,
 	exportGatewayAccounts, gatewayStatus, getAPIKeySecret,
 	getDashboard, getSettings, importGatewayAccounts, listAPIKeys, listGatewayAccounts, listGatewayModels, listGatewayRequestLogs,
-  listRuns, openConfig, openPath, saveSettings, setAPIKeyEnabled,
-  startRegistration, stopRegistration, tailLog, updateGatewayAccount,
+	listManualOAuthTasks, listRuns, openConfig, openPath, saveSettings, setAPIKeyEnabled,
+	startManualOAuth, startRegistration, stopRegistration, tailLog, updateGatewayAccount,
 } from './lib/native.js';
 
 const emptyDashboard = {
@@ -30,6 +30,7 @@ export function App() {
   const [info, setInfo] = useState(null);
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [log, setLog] = useState('');
+  const [oauthTasks, setOAuthTasks] = useState([]);
   const [runs, setRuns] = useState([]);
   const [settings, setSettings] = useState(null);
   const [gateway, setGateway] = useState({ status: {}, accounts: [], models: [], keys: [] });
@@ -45,10 +46,11 @@ export function App() {
   const refresh = useCallback(async (quiet = false) => {
     if (!quiet) setBusy(true);
     try {
-      const [nextDashboard, nextLog, nextRuns] = await Promise.all([getDashboard(), tailLog(), listRuns()]);
+      const [nextDashboard, nextLog, nextRuns, nextOAuthTasks] = await Promise.all([getDashboard(), tailLog(), listRuns(), listManualOAuthTasks()]);
       setDashboard(nextDashboard);
       setLog(nextLog);
       setRuns(nextRuns || []);
+      setOAuthTasks(nextOAuthTasks || []);
       setError('');
     } catch (err) {
       setError(err?.message || String(err));
@@ -121,6 +123,19 @@ export function App() {
     try {
       await stopRegistration();
       setNotice('停止请求已完成');
+      await refresh(true);
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleManualOAuth(id) {
+    setBusy(true);
+    try {
+      await startManualOAuth(id);
+      setNotice('OAuth Chrome 验证窗口已打开');
       await refresh(true);
     } catch (err) {
       setError(err?.message || String(err));
@@ -230,7 +245,7 @@ export function App() {
       <div className="workspace">
         <Sidebar active={view} bootstrapInfo={info} onChange={setView} />
         <main className="main-content">
-          {view === 'overview' ? <DashboardPage busy={busy} dashboard={dashboard} log={log} onOpenOutput={openPath} onStart={handleStart} onStop={() => setConfirmStop(true)} setTarget={setTarget} setThreads={setThreads} target={target} threads={threads} /> : null}
+          {view === 'overview' ? <DashboardPage busy={busy} dashboard={dashboard} log={log} oauthTasks={oauthTasks} onManualOAuth={handleManualOAuth} onOpenOutput={openPath} onStart={handleStart} onStop={() => setConfirmStop(true)} setTarget={setTarget} setThreads={setThreads} target={target} threads={threads} /> : null}
           {view === 'logs' ? <LogsPage busy={busy} log={log} onOpenPath={openPath} onRefresh={() => refresh()} path={dashboard.log_path} /> : null}
           {view === 'runs' ? <RunsPage onOpenPath={openPath} runs={runs} /> : null}
           {view === 'gateway' ? <GatewayPage busy={busy} onSave={handleSaveSettings} setSettings={setSettings} settings={settings} status={gateway.status} /> : null}

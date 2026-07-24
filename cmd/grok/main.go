@@ -283,7 +283,7 @@ func cmdStart(args []string) error {
 
 	// Do not let a stale request from a previous crashed run stop the new worker.
 	daemon.ClearStop(p.Stop)
-	pid, err := daemon.StartBackground(target, threads, runID)
+	pid, err := daemon.StartBackground(target, threads, runID, false)
 	if err != nil {
 		return err
 	}

@@ -138,6 +138,10 @@ type CreatedAPIKey struct {
 type App struct {
 	version        string
 	mu             sync.Mutex
+	oauthMu        sync.Mutex
+	oauthTaskID    string
+	oauthCancel    context.CancelFunc
+	oauthProcess   *os.Process
 	gatewayStore   *gateway.Store
 	gatewayManager *gateway.Manager
 	gatewayErr     error
@@ -178,6 +182,7 @@ func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) er
 }
 
 func (a *App) ServiceShutdown() error {
+	a.cancelManualOAuth("桌面应用已关闭", true)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var stopErr error
@@ -272,7 +277,7 @@ func (a *App) Start(request StartRequest) (StartResult, error) {
 		s.LogPath, s.OutputDir = run.LogPath, run.Root
 	})
 	daemon.ClearStop(p.Stop)
-	pid, err := daemon.StartBackground(target, threads, runID)
+	pid, err := daemon.StartBackground(target, threads, runID, true)
 	if err != nil {
 		return StartResult{}, err
 	}

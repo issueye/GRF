@@ -20,6 +20,7 @@ import (
 	"github.com/grok-free-register/grok-reg/internal/home"
 	"github.com/grok-free-register/grok-reg/internal/inventory"
 	"github.com/grok-free-register/grok-reg/internal/logx"
+	"github.com/grok-free-register/grok-reg/internal/manualoauth"
 	"github.com/grok-free-register/grok-reg/internal/oauth"
 	"github.com/grok-free-register/grok-reg/internal/onboarding"
 	"github.com/grok-free-register/grok-reg/internal/protocol"
@@ -32,6 +33,7 @@ type QItem struct {
 	Password string
 	Code     string
 	Handle   email.Handle
+	Castle   string // Castle request token reused for the signup body (JSON castleRequestToken)
 }
 
 type SSOJob struct {
@@ -48,6 +50,7 @@ type Options struct {
 	Log         *logx.Logger
 	Store       *state.Store
 	GatewaySink AccountSink
+	ManualOAuth bool
 }
 
 // AccountSink receives a successfully probed Build credential without coupling
@@ -68,6 +71,8 @@ type Engine struct {
 	phys     *inventory.Semaphore
 	qPending *inventory.Semaphore
 	width    int
+
+	castleCh chan string // castle request tokens minted by S workers, consumed by P
 
 	oauthCh  chan SSOJob
 	uploader *cpa.Uploader
@@ -178,6 +183,10 @@ func (e *Engine) run(ctx context.Context) error {
 
 	sWorkers, pWorkers, cWorkers, oauthWorkers, physCap := deriveWorkers(cfg)
 	e.width = sWorkers
+	// Castle tokens are minted by S workers (which own a browser) and buffered
+	// for P workers to attach to CreateEmailCode. Sized to the pipeline width so
+	// S workers never block feeding it.
+	e.castleCh = make(chan string, e.width)
 	e.phys = inventory.NewSemaphore(physCap)
 	// The UI's concurrency value is the end-to-end pipeline width. Keep all
 	// queues at that width so no hidden fixed cap overrides the user's choice.
@@ -271,11 +280,12 @@ func (e *Engine) run(ctx context.Context) error {
 	if e.uploader.Enabled() {
 		log.Infof("CPA upload enabled base=%s", cfg.CPAManagementBase)
 	}
-	e.oauth, err = oauth.NewClient(cfg.RegisterProxy, e.cm, time.Duration(cfg.OAuthRetrySec)*time.Second)
-	if err != nil {
-		return err
+	if !e.opt.ManualOAuth {
+		e.oauth, err = oauth.NewClient(cfg.RegisterProxy, e.cm, time.Duration(cfg.OAuthRetrySec)*time.Second)
+		if err != nil {
+			return err
+		}
 	}
-
 	_ = st.Set(func(s *state.Snapshot) {
 		s.Phase = state.PhaseRegister
 		s.PhaseDetail = "获取注册配置"
@@ -478,21 +488,49 @@ func (e *Engine) sWorker(ctx context.Context, id int, scfg protocol.SignupConfig
 		if err := e.phys.Acquire(ctx); err != nil {
 			return
 		}
-		tok, err := e.turn.Solve(ctx, scfg.SiteKey, pageURL)
-		e.phys.Release()
-		if err != nil {
-			log.Warnf("[S%d] turnstile: %v", id, err)
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(2 * time.Second):
+		// Prefer SolveFull so a Castle request token is minted in the same browser
+		// session. Providers without a browser (lite/chromedp) fall back to Solve.
+		var tok, castle string
+		if m, ok := e.turn.(turnstile.CastleMinter); ok {
+			res, err := m.SolveFull(ctx, scfg.SiteKey, pageURL)
+			e.phys.Release()
+			if err != nil {
+				log.Warnf("[S%d] turnstile: %v", id, err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(2 * time.Second):
+				}
+				continue
 			}
-			continue
+			tok, castle = res.Token, res.Castle
+		} else {
+			var err error
+			tok, err = e.turn.Solve(ctx, scfg.SiteKey, pageURL)
+			e.phys.Release()
+			if err != nil {
+				log.Warnf("[S%d] turnstile: %v", id, err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(2 * time.Second):
+				}
+				continue
+			}
 		}
 		if err := e.inv.PutT(ctx, tok, 5*time.Minute); err != nil {
 			return
 		}
-		log.Infof("[S%d] token ok (len=%d)", id, len(tok))
+		// Offer the castle token to the P-stage buffer (non-blocking: if no P
+		// worker needs it yet and the buffer is full, drop it — Castle tokens are
+		// cheap to regenerate and a missing one just degrades trust, not safety).
+		if castle != "" {
+			select {
+			case e.castleCh <- castle:
+			default:
+			}
+		}
+		log.Infof("[S%d] token ok (len=%d castle=%v)", id, len(tok), castle != "")
 	}
 }
 
@@ -563,7 +601,15 @@ func (e *Engine) pWorker(ctx context.Context, id int) {
 			}
 			continue
 		}
-		if err := e.xai.CreateEmailCode(h.Email); err != nil {
+		// Attach a Castle request token (protobuf field 3) when one is buffered;
+		// its absence lowers trust and tends to trigger OAuth invalid_grant later.
+		// Non-blocking fetch: drop to "" if no S worker has produced one yet.
+		var castle string
+		select {
+		case castle = <-e.castleCh:
+		default:
+		}
+		if err := e.xai.CreateEmailCode(h.Email, castle); err != nil {
 			e.qPending.Release()
 			e.releaseReserve()
 			log.Debugf("[P%d] create code %s: %v", id, h.Email, err)
@@ -581,7 +627,7 @@ func (e *Engine) pWorker(ctx context.Context, id int) {
 			log.Debugf("[P%d] poll code: %v", id, err)
 			continue
 		}
-		item := QItem{Email: h.Email, Password: h.Password, Code: code, Handle: h}
+		item := QItem{Email: h.Email, Password: h.Password, Code: code, Handle: h, Castle: castle}
 		if err := e.inv.PutQ(ctx, item, 2*time.Minute); err != nil {
 			e.qPending.Release()
 			e.releaseReserve()
@@ -620,7 +666,7 @@ func (e *Engine) cWorker(ctx context.Context, id int, scfg protocol.SignupConfig
 			e.releaseReserve()
 			continue
 		}
-		body := protocol.BuildSignupBody(q.Email, q.Password, q.Code, token)
+		body := protocol.BuildSignupBody(q.Email, q.Password, q.Code, token, q.Castle)
 		text, sso, err := e.xai.SignupServerAction(body, scfg.ActionID, scfg.StateTree)
 		if sso == "" {
 			sso = protocol.ExtractSSOFromText(text)
@@ -666,6 +712,7 @@ func (e *Engine) cWorker(ctx context.Context, id int, scfg protocol.SignupConfig
 func (e *Engine) oauthWorker(ctx context.Context, id int) {
 	defer e.wgOAuth.Done()
 	log := e.opt.Log
+	tasks := manualoauth.NewStore(e.opt.Run.Root)
 	minInterval := time.Duration(e.opt.Cfg.OAuthMinIntervalSec * float64(time.Second))
 	if minInterval <= 0 {
 		minInterval = 10 * time.Second
@@ -677,27 +724,55 @@ func (e *Engine) oauthWorker(ctx context.Context, id int) {
 			e.releaseReserve()
 			continue
 		}
-		if !last.IsZero() {
-			if d := time.Until(last.Add(minInterval)); d > 0 {
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(d):
+		var cred oauth.Credential
+		var err error
+		if e.opt.ManualOAuth {
+			_ = e.opt.Store.Set(func(s *state.Snapshot) {
+				s.Phase = state.PhaseOAuth
+				s.PhaseDetail = fmt.Sprintf("等待人工 OAuth (%s)", job.Email)
+			})
+			task, enqueueErr := tasks.Enqueue(e.opt.Run.RunID, job.Email, job.Password, job.SSO)
+			if enqueueErr != nil {
+				log.Warnf("创建人工 OAuth 任务失败 %s: %v", job.Email, enqueueErr)
+				e.fail.Add(1)
+				e.releaseReserve()
+				continue
+			}
+			log.Startf("等待人工 OAuth %s", job.Email)
+			cred, err = tasks.WaitAuthorized(ctx, task.ID, 500*time.Millisecond)
+			_ = tasks.Remove(task.ID)
+			if err != nil {
+				if ctx.Err() == nil {
+					log.Warnf("人工 OAuth 失败 %s: %v", job.Email, err)
+					e.fail.Add(1)
+				}
+				e.releaseReserve()
+				continue
+			}
+			log.OKf("人工 OAuth 完成 %s", job.Email)
+		} else {
+			if !last.IsZero() {
+				if delay := time.Until(last.Add(minInterval)); delay > 0 {
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(delay):
+					}
 				}
 			}
-		}
-		last = time.Now()
-		_ = e.opt.Store.Set(func(s *state.Snapshot) {
-			s.Phase = state.PhaseOAuth
-			s.PhaseDetail = fmt.Sprintf("正在 OAuth (%s)", job.Email)
-		})
-		log.Startf("OAuth %s", job.Email)
-		cred, err := e.oauth.Exchange(ctx, job.SSO)
-		if err != nil {
-			log.Warnf("OAuth fail %s: %v", job.Email, err)
-			e.fail.Add(1)
-			e.releaseReserve()
-			continue
+			last = time.Now()
+			_ = e.opt.Store.Set(func(s *state.Snapshot) {
+				s.Phase = state.PhaseOAuth
+				s.PhaseDetail = fmt.Sprintf("正在 OAuth (%s)", job.Email)
+			})
+			log.Startf("OAuth %s", job.Email)
+			cred, err = e.oauth.Exchange(ctx, job.SSO)
+			if err != nil {
+				log.Warnf("OAuth fail %s: %v", job.Email, err)
+				e.fail.Add(1)
+				e.releaseReserve()
+				continue
+			}
 		}
 		e.oaN.Add(1)
 		// Onboarding (TOS / birth date / NSFW) is best-effort: a failure does not

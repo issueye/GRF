@@ -270,6 +270,19 @@ export async function openPath(path) {
   return hasNativeRuntime() ? invoke('OpenPath', path) : undefined;
 }
 
+export async function listManualOAuthTasks() {
+  if (hasNativeRuntime()) return invoke('ListManualOAuthTasks');
+  return [
+    { id: 'preview-queued', run_id: 'preview', email: 'new.account@example.com', password: 'w5r1j6p6ajc2v2o', status: 'queued', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 'preview-failed', run_id: 'preview', email: 'retry.account@example.com', password: 'lu69ksud4dk8y4k', status: 'failed', error: '授权码已过期，请重试', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+}
+
+export async function startManualOAuth(id) {
+  if (hasNativeRuntime()) return invoke('StartManualOAuth', id);
+  return undefined;
+}
+
 export const windowActions = {
   minimise: () => Window.Minimise().catch(() => {}),
   toggleMaximise: () => Window.ToggleMaximise().catch(() => {}),

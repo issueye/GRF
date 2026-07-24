@@ -14,6 +14,7 @@ const defaultWorkerResetThreshold = 2
 // be tested without starting Chromium.
 type browserPoolWorker interface {
 	Solve(context.Context, string, string) (string, error)
+	SolveFull(context.Context, string, string) (SolveResult, error)
 	Close()
 }
 
@@ -24,10 +25,15 @@ type pooledBrowserWorker struct {
 }
 
 func (w *pooledBrowserWorker) Solve(ctx context.Context, siteKey, pageURL string) (string, error) {
-	token, err := w.browser.Solve(ctx, siteKey, pageURL)
-	if err == nil && len(token) > 10 {
+	res, err := w.SolveFull(ctx, siteKey, pageURL)
+	return res.Token, err
+}
+
+func (w *pooledBrowserWorker) SolveFull(ctx context.Context, siteKey, pageURL string) (SolveResult, error) {
+	res, err := w.browser.SolveFull(ctx, siteKey, pageURL)
+	if err == nil && len(res.Token) > 10 {
 		w.failStreak = 0
-		return token, nil
+		return res, nil
 	}
 	if err == nil {
 		err = fmt.Errorf("empty token")
@@ -37,7 +43,7 @@ func (w *pooledBrowserWorker) Solve(ctx context.Context, siteKey, pageURL string
 		w.browser.Close()
 		w.failStreak = 0
 	}
-	return "", err
+	return SolveResult{}, err
 }
 
 func (w *pooledBrowserWorker) Close() { w.browser.Close() }
@@ -154,6 +160,40 @@ func (p *BrowserPool) Solve(ctx context.Context, siteKey, pageURL string) (strin
 		}
 	}()
 	return worker.Solve(ctx, siteKey, pageURL)
+}
+
+// SolveFull borrows a worker and returns both the Turnstile token and the
+// Castle request token minted in the same browser session.
+func (p *BrowserPool) SolveFull(ctx context.Context, siteKey, pageURL string) (SolveResult, error) {
+	if siteKey == "" {
+		return SolveResult{}, fmt.Errorf("empty site key")
+	}
+
+	p.mu.Lock()
+	if p.closing {
+		p.mu.Unlock()
+		return SolveResult{}, fmt.Errorf("browser pool closed")
+	}
+	p.inflight.Add(1)
+	p.mu.Unlock()
+	defer p.inflight.Done()
+
+	var worker browserPoolWorker
+	select {
+	case <-ctx.Done():
+		return SolveResult{}, ctx.Err()
+	case <-p.closed:
+		return SolveResult{}, fmt.Errorf("browser pool closed")
+	case worker = <-p.workers:
+	}
+
+	defer func() {
+		select {
+		case p.workers <- worker:
+		case <-p.closed:
+		}
+	}()
+	return worker.SolveFull(ctx, siteKey, pageURL)
 }
 
 func (p *BrowserPool) Close() {

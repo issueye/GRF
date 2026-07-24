@@ -248,6 +248,47 @@ export class RequestLog {
     }
 }
 
+export class Status {
+    "running": boolean;
+    "address": string;
+    "error"?: string;
+    "token_usage": TokenUsage;
+    "request_count": number;
+
+    /** Creates a new Status instance. */
+    constructor($$source: Partial<Status> = {}) {
+        if (!("running" in $$source)) {
+            this["running"] = false;
+        }
+        if (!("address" in $$source)) {
+            this["address"] = "";
+        }
+        if (!("token_usage" in $$source)) {
+            this["token_usage"] = (new TokenUsage());
+        }
+        if (!("request_count" in $$source)) {
+            this["request_count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Status instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Status {
+        const $$createField3_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("token_usage" in $$parsedSource) {
+            $$parsedSource["token_usage"] = $$createField3_0($$parsedSource["token_usage"]);
+        }
+        return new Status($$parsedSource as Partial<Status>);
+    }
+}
+
+/**
+ * TokenUsage is a cumulative token summary since process start (or last log clear).
+ */
 export class TokenUsage {
     "request_count": number;
     "input_tokens": number;
@@ -281,41 +322,5 @@ export class TokenUsage {
     }
 }
 
-export class Status {
-    "running": boolean;
-    "address": string;
-    "error"?: string;
-    "token_usage": TokenUsage;
-    "request_count": number;
-
-    /** Creates a new Status instance. */
-    constructor($$source: Partial<Status> = {}) {
-        if (!("running" in $$source)) {
-            this["running"] = false;
-        }
-        if (!("address" in $$source)) {
-            this["address"] = "";
-        }
-        if (!("token_usage" in $$source)) {
-            this["token_usage"] = new TokenUsage();
-        } else {
-            this["token_usage"] = TokenUsage.createFrom($$source["token_usage"]);
-        }
-        if (!("request_count" in $$source)) {
-            this["request_count"] = 0;
-        }
-
-        Object.assign(this, $$source);
-        if ($$source["token_usage"]) {
-            this["token_usage"] = TokenUsage.createFrom($$source["token_usage"]);
-        }
-    }
-
-    /**
-     * Creates a new Status instance from a string or object.
-     */
-    static createFrom($$source: any = {}): Status {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new Status($$parsedSource as Partial<Status>);
-    }
-}
+// Private type creation functions
+const $$createType0 = TokenUsage.createFrom;

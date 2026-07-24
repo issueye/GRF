@@ -20,6 +20,24 @@ type Provider interface {
 	Name() string
 }
 
+// SolveResult bundles a Turnstile token with the Castle request token minted in
+// the same browser session. Castle is empty when the provider has no browser
+// (e.g. lite/chromedp-only) or when minting failed — callers fall back gracefully.
+type SolveResult struct {
+	Token  string // Cloudflare Turnstile token
+	Castle string // Castle request token (publishable-key fingerprint)
+}
+
+// CastleMinter is implemented by providers that can also produce a Castle
+// request token alongside the Turnstile token. Pipeline code type-asserts to
+// this; providers that do not implement it leave Castle empty.
+type CastleMinter interface {
+	SolveFull(ctx context.Context, siteKey, pageURL string) (SolveResult, error)
+}
+
+// CastlePublishableKey is the x.ai signup app id baked into the page.
+const CastlePublishableKey = "pk_p8GGwVD3TmFJZRsX3BQcqAv9aFVispNz"
+
 // Optional closer for browser allocator.
 type Closer interface {
 	Close()

@@ -8,157 +8,186 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as gateway$0 from "../../internal/gateway/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as manualoauth$0 from "../../internal/manualoauth/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function Bootstrap(): $CancellablePromise<$models.BootstrapInfo> {
-    return $Call.ByID(2934747687).then(($result: any) => {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.Bootstrap").then(($result: any) => {
         return $$createType0($result);
     });
 }
 
 export function CheckGatewayAccounts(): $CancellablePromise<gateway$0.AccountHealthSummary> {
-    return $Call.ByID(2244012681).then(($result: any) => {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.CheckGatewayAccounts").then(($result: any) => {
         return $$createType1($result);
     });
 }
 
 export function ClearGatewayRequestLogs(): $CancellablePromise<void> {
-    return $Call.ByID(1063812684);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ClearGatewayRequestLogs");
 }
 
 export function CreateAPIKey(name: string): $CancellablePromise<$models.CreatedAPIKey> {
-    return $Call.ByID(2849228272, name).then(($result: any) => {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.CreateAPIKey", name).then(($result: any) => {
         return $$createType2($result);
     });
 }
 
 export function DeleteAPIKey(id: number): $CancellablePromise<void> {
-    return $Call.ByID(535668967, id);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.DeleteAPIKey", id);
 }
 
 export function DeleteGatewayAccount(id: number): $CancellablePromise<void> {
-    return $Call.ByID(251294873, id);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.DeleteGatewayAccount", id);
 }
 
-export function GatewayStatus(): $CancellablePromise<gateway$0.Status> {
-    return $Call.ByID(1419683181).then(($result: any) => {
+/**
+ * ExportGatewayAccounts exports every gateway account as a re-importable CPA
+ * JSON document and bundles them into a zip at destPath. Credentials are stored
+ * encrypted at rest; only the store can decrypt them, so export must run here.
+ */
+export function ExportGatewayAccounts(destPath: string): $CancellablePromise<$models.GatewayAccountExportResult> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ExportGatewayAccounts", destPath).then(($result: any) => {
         return $$createType3($result);
     });
 }
 
-export function GetAPIKeySecret(id: number): $CancellablePromise<string> {
-    return $Call.ByID(1639655270, id);
-}
-
-export function GetDashboard(): $CancellablePromise<$models.Dashboard> {
-    return $Call.ByID(353919147).then(($result: any) => {
+export function GatewayStatus(): $CancellablePromise<gateway$0.Status> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.GatewayStatus").then(($result: any) => {
         return $$createType4($result);
     });
 }
 
-export function GetSettings(): $CancellablePromise<$models.Settings> {
-    return $Call.ByID(303360312).then(($result: any) => {
+export function GetAPIKeySecret(id: number): $CancellablePromise<string> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.GetAPIKeySecret", id);
+}
+
+export function GetDashboard(): $CancellablePromise<$models.Dashboard> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.GetDashboard").then(($result: any) => {
         return $$createType5($result);
     });
 }
 
-export function ImportGatewayAccounts(paths: string[]): $CancellablePromise<$models.GatewayAccountImportResult> {
-    return $Call.ByID(2318896960, paths).then(($result: any) => {
+export function GetSettings(): $CancellablePromise<$models.Settings> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.GetSettings").then(($result: any) => {
         return $$createType6($result);
     });
 }
 
+export function ImportGatewayAccounts(paths: string[]): $CancellablePromise<$models.GatewayAccountImportResult> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ImportGatewayAccounts", paths).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
 export function ListAPIKeys(): $CancellablePromise<gateway$0.APIKey[]> {
-    return $Call.ByID(1193353329).then(($result: any) => {
-        return $$createType8($result);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListAPIKeys").then(($result: any) => {
+        return $$createType9($result);
     });
 }
 
 export function ListGatewayAccounts(): $CancellablePromise<gateway$0.Account[]> {
-    return $Call.ByID(518095).then(($result: any) => {
-        return $$createType10($result);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListGatewayAccounts").then(($result: any) => {
+        return $$createType11($result);
     });
 }
 
 export function ListGatewayModels(): $CancellablePromise<gateway$0.Model[]> {
-    return $Call.ByID(3640931529).then(($result: any) => {
-        return $$createType12($result);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListGatewayModels").then(($result: any) => {
+        return $$createType13($result);
     });
 }
 
 export function ListGatewayRequestLogs(limit: number): $CancellablePromise<gateway$0.RequestLog[]> {
-    return $Call.ByID(1644008471, limit).then(($result: any) => {
-        return $$createType14($result);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListGatewayRequestLogs", limit).then(($result: any) => {
+        return $$createType15($result);
     });
 }
 
-export function ListRuns(limit: number): $CancellablePromise<$models.RunEntry[]> {
-    return $Call.ByID(2950642485, limit).then(($result: any) => {
-        return $$createType16($result);
-    });
-}
-
-export function OpenConfig(): $CancellablePromise<void> {
-    return $Call.ByID(81071333);
-}
-
-export function OpenPath(path: string): $CancellablePromise<void> {
-    return $Call.ByID(3590639472, path);
-}
-
-export function SaveSettings(settings: $models.Settings): $CancellablePromise<void> {
-    return $Call.ByID(16531267, settings);
-}
-
-export function SetAPIKeyEnabled(id: number, enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2552370103, id, enabled);
-}
-
-export function Start(request: $models.StartRequest): $CancellablePromise<$models.StartResult> {
-    return $Call.ByID(3115171033, request).then(($result: any) => {
+export function ListManualOAuthTasks(): $CancellablePromise<manualoauth$0.PublicTask[]> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListManualOAuthTasks").then(($result: any) => {
         return $$createType17($result);
     });
 }
 
+export function ListRuns(limit: number): $CancellablePromise<$models.RunEntry[]> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.ListRuns", limit).then(($result: any) => {
+        return $$createType19($result);
+    });
+}
+
+export function OpenConfig(): $CancellablePromise<void> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.OpenConfig");
+}
+
+export function OpenPath(path: string): $CancellablePromise<void> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.OpenPath", path);
+}
+
+export function SaveSettings(settings: $models.Settings): $CancellablePromise<void> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.SaveSettings", settings);
+}
+
+export function SetAPIKeyEnabled(id: number, enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.SetAPIKeyEnabled", id, enabled);
+}
+
+export function Start(request: $models.StartRequest): $CancellablePromise<$models.StartResult> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.Start", request).then(($result: any) => {
+        return $$createType20($result);
+    });
+}
+
 export function StartGateway(): $CancellablePromise<void> {
-    return $Call.ByID(559468485);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.StartGateway");
+}
+
+export function StartManualOAuth(taskID: string): $CancellablePromise<manualoauth$0.PublicTask> {
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.StartManualOAuth", taskID).then(($result: any) => {
+        return $$createType16($result);
+    });
 }
 
 export function Stop(): $CancellablePromise<void> {
-    return $Call.ByID(2040913075);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.Stop");
 }
 
 export function StopGateway(): $CancellablePromise<void> {
-    return $Call.ByID(1172643219);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.StopGateway");
 }
 
 export function TailLog(maxBytes: number): $CancellablePromise<string> {
-    return $Call.ByID(1942471693, maxBytes);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.TailLog", maxBytes);
 }
 
 export function UpdateGatewayAccount(update: $models.GatewayAccountUpdate): $CancellablePromise<void> {
-    return $Call.ByID(2668249371, update);
+    return $Call.ByName("github.com/grok-free-register/grok-reg/desktop/app.App.UpdateGatewayAccount", update);
 }
 
 // Private type creation functions
 const $$createType0 = $models.BootstrapInfo.createFrom;
 const $$createType1 = gateway$0.AccountHealthSummary.createFrom;
 const $$createType2 = $models.CreatedAPIKey.createFrom;
-const $$createType3 = gateway$0.Status.createFrom;
-const $$createType4 = $models.Dashboard.createFrom;
-const $$createType5 = $models.Settings.createFrom;
-const $$createType6 = $models.GatewayAccountImportResult.createFrom;
-const $$createType7 = gateway$0.APIKey.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = gateway$0.Account.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = gateway$0.Model.createFrom;
-const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = gateway$0.RequestLog.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = $models.RunEntry.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = $models.StartResult.createFrom;
+const $$createType3 = $models.GatewayAccountExportResult.createFrom;
+const $$createType4 = gateway$0.Status.createFrom;
+const $$createType5 = $models.Dashboard.createFrom;
+const $$createType6 = $models.Settings.createFrom;
+const $$createType7 = $models.GatewayAccountImportResult.createFrom;
+const $$createType8 = gateway$0.APIKey.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = gateway$0.Account.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = gateway$0.Model.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = gateway$0.RequestLog.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = manualoauth$0.PublicTask.createFrom;
+const $$createType17 = $Create.Array($$createType16);
+const $$createType18 = $models.RunEntry.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $models.StartResult.createFrom;

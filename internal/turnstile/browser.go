@@ -133,7 +133,19 @@ func (b *Browser) ensureBrowser() (context.Context, error) {
 	return browserCtx, nil
 }
 
+// Solve solves only the Turnstile token. SolveFull additionally mints a Castle
+// request token in the same browser session.
 func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, error) {
+	res, err := b.solve(ctx, siteKey, pageURL)
+	return res.Token, err
+}
+
+// SolveFull implements CastleMinter.
+func (b *Browser) SolveFull(ctx context.Context, siteKey, pageURL string) (SolveResult, error) {
+	return b.solve(ctx, siteKey, pageURL)
+}
+
+func (b *Browser) solve(ctx context.Context, siteKey, pageURL string) (SolveResult, error) {
 	// One Browser represents one pool worker. Serializing direct callers also
 	// keeps the storage-cleanup fallback safe on Chromium builds that do not
 	// support isolated browser contexts.
@@ -141,7 +153,7 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 	defer b.solveMu.Unlock()
 
 	if siteKey == "" {
-		return "", fmt.Errorf("empty site key")
+		return SolveResult{}, fmt.Errorf("empty site key")
 	}
 	if pageURL == "" {
 		pageURL = "https://accounts.x.ai/sign-up"
@@ -150,7 +162,7 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 		b.ExecPath = browser.FindChrome()
 	}
 	if b.ExecPath == "" {
-		return "", fmt.Errorf("chrome/chromium not found; set CHROME_PATH or install cloakbrowser")
+		return SolveResult{}, fmt.Errorf("chrome/chromium not found; set CHROME_PATH or install cloakbrowser")
 	}
 
 	hard := b.HardTimeout
@@ -162,13 +174,13 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 
 	browserCtx, err := b.ensureBrowser()
 	if err != nil {
-		return "", err
+		return SolveResult{}, err
 	}
 	// Prefer an incognito browser context. A few Chromium builds reject CDP's
 	// Target.createBrowserContext; for those, use a fresh tab and clear state.
 	tabCtx, tabCancel, isolated, err := b.newSolveContext(browserCtx)
 	if err != nil {
-		return "", err
+		return SolveResult{}, err
 	}
 	defer tabCancel()
 
@@ -216,28 +228,28 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 		chromedp.WaitReady("body", chromedp.ByQuery),
 	)
 	if err := chromedp.Run(tabCtx, actions...); err != nil {
-		return "", fmt.Errorf("navigate: %w", err)
+		return SolveResult{}, fmt.Errorf("navigate: %w", err)
 	}
 	var pageTitle, bodyText string
 	if err := chromedp.Run(tabCtx,
 		chromedp.Title(&pageTitle),
 		chromedp.Text("body", &bodyText, chromedp.ByQuery),
 	); err != nil {
-		return "", fmt.Errorf("inspect page: %w", err)
+		return SolveResult{}, fmt.Errorf("inspect page: %w", err)
 	}
 	if strings.Contains(pageTitle, "Attention Required") ||
 		strings.Contains(bodyText, "You are unable to access") {
-		return "", fmt.Errorf("accounts.x.ai blocked automated browser (title=%q); switch proxy or use a headed browser", pageTitle)
+		return SolveResult{}, fmt.Errorf("accounts.x.ai blocked automated browser (title=%q); switch proxy or use a headed browser", pageTitle)
 	}
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return SolveResult{}, ctx.Err()
 	case <-time.After(1000 * time.Millisecond):
 	}
 
 	// --- inject EXACT Python widget (api.js without ?render=explicit) ---
 	if err := chromedp.Run(tabCtx, chromedp.Evaluate(buildInjectJS(siteKey), nil)); err != nil {
-		return "", fmt.Errorf("inject: %w", err)
+		return SolveResult{}, fmt.Errorf("inject: %w", err)
 	}
 
 	// Python: SOLVER_INITIAL_WAIT_MS then early poll
@@ -247,18 +259,18 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 	}
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return SolveResult{}, ctx.Err()
 	case <-time.After(iw):
 	}
 
 	// early poll (Python SOLVER_EARLY_POLL: 2 x 800ms)
 	for i := 0; i < 2; i++ {
 		if tok, _ := readToken(tabCtx); len(tok) > 10 {
-			return tok, nil
+			return SolveResult{Token: tok, Castle: b.mintCastleToken(tabCtx)}, nil
 		}
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return SolveResult{}, ctx.Err()
 		case <-time.After(800 * time.Millisecond):
 		}
 	}
@@ -274,13 +286,13 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 	}
 	for i := 0; i < retries; i++ {
 		if tok, _ := readToken(tabCtx); len(tok) > 10 {
-			return tok, nil
+			return SolveResult{Token: tok, Castle: b.mintCastleToken(tabCtx)}, nil
 		}
 		_ = mouseClickTurnstileCenter(tabCtx)
 		if i+1 < retries {
 			select {
 			case <-ctx.Done():
-				return "", ctx.Err()
+				return SolveResult{}, ctx.Err()
 			case <-time.After(interval):
 			}
 		}
@@ -298,7 +310,7 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 	for i := 0; i < attempts; i++ {
 		select {
 		case <-ctx.Done():
-			return "", fmt.Errorf("turnstile timeout (no token) %s", pageDiag(tabCtx))
+			return SolveResult{}, fmt.Errorf("turnstile timeout (no token) %s", pageDiag(tabCtx))
 		case <-time.After(poll):
 		}
 		tok, err := readToken(tabCtx)
@@ -306,14 +318,14 @@ func (b *Browser) Solve(ctx context.Context, siteKey, pageURL string) (string, e
 			continue
 		}
 		if len(tok) > 10 {
-			return tok, nil
+			return SolveResult{Token: tok, Castle: b.mintCastleToken(tabCtx)}, nil
 		}
 		// Python re-clicks every ~10s while polling
 		if i > 0 && i%20 == 0 {
 			_ = mouseClickTurnstileCenter(tabCtx)
 		}
 	}
-	return "", fmt.Errorf("turnstile timeout (no token) %s", pageDiag(tabCtx))
+	return SolveResult{}, fmt.Errorf("turnstile timeout (no token) %s", pageDiag(tabCtx))
 }
 
 func (b *Browser) newSolveContext(browserCtx context.Context) (context.Context, context.CancelFunc, bool, error) {
@@ -404,6 +416,51 @@ func readToken(ctx context.Context) (string, error) {
 		&tok,
 	))
 	return tok, err
+}
+
+// castleMintScript fetches the Castle v2 SDK, evals it (so its IIFE runs),
+// configures the publishable app id, and resolves createRequestToken(). The
+// promise resolves to the token string or "" on any failure.
+const castleMintScript = `(async () => {
+  try {
+    if (typeof window._castle !== 'function') {
+      const candidates = [
+        'https://js.castle.io/v2/castle.js',
+        'https://d2a8a4nxofan8h.cloudfront.net/v2/castle.js',
+      ];
+      let src = '';
+      for (const u of candidates) {
+        try {
+          const r = await fetch(u);
+          if (r.ok) { src = await r.text(); break; }
+        } catch (e) {}
+      }
+      if (src) { (0, eval)(src); }
+    }
+    if (typeof window._castle !== 'function') return '';
+    window._castle('setAppId', %s);
+    const token = await window._castle('createRequestToken');
+    return typeof token === 'string' ? token : '';
+  } catch (e) {
+    return '';
+  }
+})()`
+
+// mintCastleToken loads the Castle SDK in the current tab and returns a fresh
+// request token. It never returns an error: a Castle failure must not demote an
+// otherwise-valid Turnstile solve, so callers simply get an empty string.
+func (b *Browser) mintCastleToken(ctx context.Context) string {
+	pk, _ := json.Marshal(CastlePublishableKey)
+	script := fmt.Sprintf(castleMintScript, string(pk))
+	mintCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	var token string
+	if err := chromedp.Run(mintCtx,
+		chromedp.Evaluate(script, &token, chromedp.EvalAsValue),
+	); err != nil {
+		return ""
+	}
+	return token
 }
 
 // mouseClickTurnstileCenter ports Python _mouse_click_turnstile_center_trace.

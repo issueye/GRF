@@ -179,6 +179,69 @@ export class Dashboard {
     }
 }
 
+export class GatewayAccountExportFailure {
+    "account": string;
+    "error": string;
+
+    /** Creates a new GatewayAccountExportFailure instance. */
+    constructor($$source: Partial<GatewayAccountExportFailure> = {}) {
+        if (!("account" in $$source)) {
+            this["account"] = "";
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountExportFailure instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GatewayAccountExportFailure {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GatewayAccountExportFailure($$parsedSource as Partial<GatewayAccountExportFailure>);
+    }
+}
+
+export class GatewayAccountExportResult {
+    "total_accounts": number;
+    "exported_accounts": number;
+    "failed_accounts": number;
+    "path"?: string;
+    "failures": GatewayAccountExportFailure[];
+
+    /** Creates a new GatewayAccountExportResult instance. */
+    constructor($$source: Partial<GatewayAccountExportResult> = {}) {
+        if (!("total_accounts" in $$source)) {
+            this["total_accounts"] = 0;
+        }
+        if (!("exported_accounts" in $$source)) {
+            this["exported_accounts"] = 0;
+        }
+        if (!("failed_accounts" in $$source)) {
+            this["failed_accounts"] = 0;
+        }
+        if (!("failures" in $$source)) {
+            this["failures"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GatewayAccountExportResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GatewayAccountExportResult {
+        const $$createField4_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failures" in $$parsedSource) {
+            $$parsedSource["failures"] = $$createField4_0($$parsedSource["failures"]);
+        }
+        return new GatewayAccountExportResult($$parsedSource as Partial<GatewayAccountExportResult>);
+    }
+}
+
 export class GatewayAccountImportFailure {
     "file": string;
     "error": string;
@@ -236,7 +299,7 @@ export class GatewayAccountImportResult {
      * Creates a new GatewayAccountImportResult instance from a string or object.
      */
     static createFrom($$source: any = {}): GatewayAccountImportResult {
-        const $$createField4_0 = $$createType3;
+        const $$createField4_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("failures" in $$parsedSource) {
             $$parsedSource["failures"] = $$createField4_0($$parsedSource["failures"]);
@@ -457,5 +520,7 @@ export class StartResult {
 // Private type creation functions
 const $$createType0 = gateway$0.APIKey.createFrom;
 const $$createType1 = state$0.Workers.createFrom;
-const $$createType2 = GatewayAccountImportFailure.createFrom;
+const $$createType2 = GatewayAccountExportFailure.createFrom;
 const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = GatewayAccountImportFailure.createFrom;
+const $$createType5 = $Create.Array($$createType4);
